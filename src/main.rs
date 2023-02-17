@@ -1,9 +1,9 @@
 /*
 * SPDX-License-Identifier: MIT
 */
-
-use backends::glad2::draw_triangle;
-mod backends;
+mod rendering;
+use rendering::glad2::draw_triangle;
+// use rendering::glium::draw_triangle;
 
 fn main() {
     draw_triangle();
