@@ -4,20 +4,23 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.60"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["backend-glad2"]
-backend-glad2 = ["dep:winit", "dep:glutin", "dep:glutin-winit", "dep:glad-gl"]
+default = ["backend-gl"]
+backend-gl = []
 backend-glium = ["dep:glium"]
 
 
 [dependencies]
-glium = { version = "0.32.1", optional = true }
+glium = { version = "0.32.1", features = [], optional = true }
 
-winit = { version = "0.27.5", optional = true }
-glutin = { version = "0.30.3", optional = true }
-glutin-winit = { version = "0.2.2", optional = true }
+winit = { version = "0.27.5"}
+glutin = { version = "0.30.3" }
+glutin-winit = { version = "0.2.2"}
 raw-window-handle = "0.5.0"
-glad-gl = { path = "./glad-gl", optional = true }
+
+[build-dependencies]
+gl_generator = "0.14"

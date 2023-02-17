@@ -409,7 +409,7 @@ dependencies = [
 name = "gaka-rs"
 version = "0.1.0"
 dependencies = [
- "glad-gl",
+ "gl_generator",
  "glium",
  "glutin 0.30.3",
  "glutin-winit",
@@ -433,10 +433,6 @@ dependencies = [
  "log",
  "xml-rs",
 ]
-
-[[package]]
-name = "glad-gl"
-version = "2.0.3"
 
 [[package]]
 name = "glium"
