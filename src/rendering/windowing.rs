@@ -1,6 +1,9 @@
 extern crate glutin;
 
-mod gl_renderer;
+mod gl {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
 
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopBuilder;
@@ -19,6 +22,8 @@ use glutin_winit::{self, DisplayBuilder, GlWindow};
 use std::ffi::{self, CString};
 use std::fs;
 use std::num::NonZeroU32;
+
+use crate::rendering::gl_renderer::Renderer;
 
 pub fn draw_triangle() {
     // create the window with glutin
@@ -76,74 +81,72 @@ pub fn draw_triangle() {
         fs::read_to_string("./glsl/vertexShader.vert").expect("fail to read the file");
     let fragment_shader =
         fs::read_to_string("./glsl/fragmentShader.frag").expect("fail to read the file");
-    let v_shader_code = ffi::CString::new(vertex_shader).unwrap();
-    let f_shader_code = ffi::CString::new(fragment_shader).unwrap();
 
     // build and compile the shader program
-    let mut success: gl::types::GLint = 1;
-    let shader_program: u32 = unsafe {
-        // vertex shader
-        let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-        gl::ShaderSource(vertex_shader, 1, &v_shader_code.as_ptr(), std::ptr::null());
-        gl::CompileShader(vertex_shader);
-        gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
-        if success == 0 {
-            let mut info_log: Vec<i8> = Vec::with_capacity(512);
-            let mut len = 0;
-            gl::GetShaderInfoLog(
-                vertex_shader,
-                info_log.capacity() as gl::types::GLint,
-                &mut len,
-                info_log.as_mut_ptr(),
-            );
-            println!("ERROR::SHADER::VERTEX::COMPILATION_FAILED");
-            println!("{}", convert_info_log_to_string(&mut info_log, len));
-        }
-        // fragment shader
-        let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-        gl::ShaderSource(
-            fragment_shader,
-            1,
-            &f_shader_code.as_ptr(),
-            std::ptr::null(),
-        );
-        gl::CompileShader(fragment_shader);
-        gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-        if success == 0 {
-            let mut info_log: Vec<i8> = Vec::with_capacity(512);
-            let mut len = 0;
-            gl::GetShaderInfoLog(
-                fragment_shader,
-                info_log.capacity() as gl::types::GLint,
-                &mut len,
-                info_log.as_mut_ptr(),
-            );
-            println!("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED");
-            println!("{}", convert_info_log_to_string(&mut info_log, len));
-        }
+    // let mut success: gl::types::GLint = 1;
+    // let shader_program: u32 = unsafe {
+    //     // vertex shader
+    //     let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+    //     gl::ShaderSource(vertex_shader, 1, &v_shader_code.as_ptr(), std::ptr::null());
+    //     gl::CompileShader(vertex_shader);
+    //     gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
+    //     if success == 0 {
+    //         let mut info_log: Vec<i8> = Vec::with_capacity(512);
+    //         let mut len = 0;
+    //         gl::GetShaderInfoLog(
+    //             vertex_shader,
+    //             info_log.capacity() as gl::types::GLint,
+    //             &mut len,
+    //             info_log.as_mut_ptr(),
+    //         );
+    //         println!("ERROR::SHADER::VERTEX::COMPILATION_FAILED");
+    //         println!("{}", convert_info_log_to_string(&mut info_log, len));
+    //     }
+    //     // fragment shader
+    //     let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+    //     gl::ShaderSource(
+    //         fragment_shader,
+    //         1,
+    //         &f_shader_code.as_ptr(),
+    //         std::ptr::null(),
+    //     );
+    //     gl::CompileShader(fragment_shader);
+    //     gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
+    //     if success == 0 {
+    //         let mut info_log: Vec<i8> = Vec::with_capacity(512);
+    //         let mut len = 0;
+    //         gl::GetShaderInfoLog(
+    //             fragment_shader,
+    //             info_log.capacity() as gl::types::GLint,
+    //             &mut len,
+    //             info_log.as_mut_ptr(),
+    //         );
+    //         println!("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED");
+    //         println!("{}", convert_info_log_to_string(&mut info_log, len));
+    //     }
 
-        // link shaders
-        let shader_program = gl::CreateProgram();
-        gl::AttachShader(shader_program, vertex_shader);
-        gl::AttachShader(shader_program, fragment_shader);
-        gl::LinkProgram(shader_program);
-        gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
-        if success == 0 {
-            let mut info_log: Vec<i8> = Vec::with_capacity(512);
-            let mut len = 0;
-            gl::GetProgramInfoLog(
-                shader_program,
-                info_log.capacity() as gl::types::GLint,
-                &mut len,
-                info_log.as_mut_ptr(),
-            );
-            println!("ERROR::SHADER::PROGRAM::LINKING_FAILED");
-            println!("{}", convert_info_log_to_string(&mut info_log, len));
-        }
-        gl::DeleteShader(vertex_shader);
-        gl::DeleteShader(fragment_shader);
-        shader_program
-    };
+    //     // link shaders
+    //     let shader_program = gl::CreateProgram();
+    //     gl::AttachShader(shader_program, vertex_shader);
+    //     gl::AttachShader(shader_program, fragment_shader);
+    //     gl::LinkProgram(shader_program);
+    //     gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
+    //     if success == 0 {
+    //         let mut info_log: Vec<i8> = Vec::with_capacity(512);
+    //         let mut len = 0;
+    //         gl::GetProgramInfoLog(
+    //             shader_program,
+    //             info_log.capacity() as gl::types::GLint,
+    //             &mut len,
+    //             info_log.as_mut_ptr(),
+    //         );
+    //         println!("ERROR::SHADER::PROGRAM::LINKING_FAILED");
+    //         println!("{}", convert_info_log_to_string(&mut info_log, len));
+    //     }
+    //     gl::DeleteShader(vertex_shader);
+    //     gl::DeleteShader(fragment_shader);
+    //     shader_program
+    // };
 
     let vertices: [f32; 9] = [
         -0.5, -0.5, 0.0, // left
@@ -151,33 +154,33 @@ pub fn draw_triangle() {
         0.0, 0.5, 0.0, // top
     ];
 
-    let mut vao: u32 = 0;
-    let mut vbo: u32 = 0;
+    // let mut vao: u32 = 0;
+    // let mut vbo: u32 = 0;
 
-    unsafe {
-        gl::GenVertexArrays(1, &mut vao);
-        gl::GenBuffers(1, &mut vbo);
-        gl::BindVertexArray(vao);
+    // unsafe {
+    //     gl::GenVertexArrays(1, &mut vao);
+    //     gl::GenBuffers(1, &mut vbo);
+    //     gl::BindVertexArray(vao);
 
-        // copy the vertices array in a buffer
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-            vertices.as_ptr().cast(),
-            gl::STATIC_DRAW,
-        );
-        // set the vertex attributes pointers
-        gl::VertexAttribPointer(
-            0,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (3 * std::mem::size_of::<f32>()) as gl::types::GLsizei,
-            std::ptr::null(),
-        );
-        gl::EnableVertexAttribArray(0);
-    }
+    //     // copy the vertices array in a buffer
+    //     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+    //     gl::BufferData(
+    //         gl::ARRAY_BUFFER,
+    //         (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+    //         vertices.as_ptr().cast(),
+    //         gl::STATIC_DRAW,
+    //     );
+    //     // set the vertex attributes pointers
+    //     gl::VertexAttribPointer(
+    //         0,
+    //         3,
+    //         gl::FLOAT,
+    //         gl::FALSE,
+    //         (3 * std::mem::size_of::<f32>()) as gl::types::GLsizei,
+    //         std::ptr::null(),
+    //     );
+    //     gl::EnableVertexAttribArray(0);
+    // }
 
     let mut state = None;
     let mut renderer = None;
@@ -220,16 +223,19 @@ pub fn draw_triangle() {
                 assert!(state.replace((gl_context, gl_surface, window)).is_none());
             }
             Event::RedrawRequested(_) => {
-                unsafe {
-                    gl::ClearColor(0.2, 0.3, 0.3, 1.0);
-                    gl::Clear(gl::COLOR_BUFFER_BIT);
-                    // use the program
-                    gl::UseProgram(shader_program);
-                    gl::BindVertexArray(vao);
-                    // draw our triangle
-                    gl::DrawArrays(gl::TRIANGLES, 0, 3)
-                }
+                // unsafe {
+                //     gl::ClearColor(0.2, 0.3, 0.3, 1.0);
+                //     gl::Clear(gl::COLOR_BUFFER_BIT);
+                //     // use the program
+                //     gl::UseProgram(shader_program);
+                //     gl::BindVertexArray(vao);
+                //     // draw our triangle
+                //     gl::DrawArrays(gl::TRIANGLES, 0, 3)
+                // }
                 if let Some((gl_context, gl_surface, _)) = &state {
+                    let renderer = renderer.as_ref().unwrap();
+                    renderer.draw();
+                    window.request_redraw();
                     gl_surface.swap_buffers(gl_context).unwrap();
                 }
             }

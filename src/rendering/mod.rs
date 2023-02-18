@@ -4,5 +4,4 @@ pub mod glium;
 
 #[cfg(feature = "backend-gl")]
 pub mod gl_renderer;
-
-//pub struct Renderer<Backend>;
+pub mod windowing;

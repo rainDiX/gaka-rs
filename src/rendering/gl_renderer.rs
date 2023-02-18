@@ -3,7 +3,6 @@ mod gl {
 }
 
 use std::{ops::Deref, ffi::CString};
-
 use glutin::prelude::GlDisplay;
 
 pub struct Renderer {
@@ -14,7 +13,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new<D: GlDisplay>(gl_display: &D) -> Self {
+    pub fn new<D: GlDisplay>(gl_display: &D, vertex_shader_source: &String, fragment_shader_source: &String) -> Self {
         unsafe {
             let gl = gl::Gl::load_with(|symbol| {
                 let symbol = CString::new(symbol).unwrap();
@@ -32,8 +31,11 @@ impl Renderer {
                 println!("Shaders version on {}", shaders_version.to_string_lossy());
             }
 
-            let vertex_shader = create_shader(&gl, gl::VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-            let fragment_shader = create_shader(&gl, gl::FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
+            let v_shader_code = CString::new(*vertex_shader_source).unwrap();
+            let f_shader_code = CString::new(*fragment_shader_source).unwrap();
+
+            let vertex_shader = create_shader(&gl, gl::VERTEX_SHADER, v_shader_code.as_bytes());
+            let fragment_shader = create_shader(&gl, gl::FRAGMENT_SHADER, f_shader_code.as_bytes());
 
             let program = gl.CreateProgram();
 
