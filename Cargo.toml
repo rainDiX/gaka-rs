@@ -3,24 +3,20 @@ name = "gaka-rs"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-rust-version = "1.60"
+rust-version = "1.62"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[features]
-default = ["backend-gl"]
-backend-gl = []
-backend-glium = ["dep:glium"]
-
-
 [dependencies]
-glium = { version = "0.32.1", features = [], optional = true }
+gl = { version = "*" }
+winit = { version = "^0.28" }
+glutin = { version = "^0.30" }
+glutin-winit = { version = "^0.3" }
+raw-window-handle = "^0.5"
 
-winit = { version = "0.27.5"}
-glutin = { version = "0.30.3" }
-glutin-winit = { version = "0.2.2"}
-raw-window-handle = "0.5.0"
-
-[build-dependencies]
-gl_generator = "0.14"
+[profile.release]
+opt-level = 3
+lto = 'fat'
+panic = 'abort'
+strip = true
