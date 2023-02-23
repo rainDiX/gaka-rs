@@ -4,7 +4,7 @@
 
 extern crate glutin;
 mod asset_manager;
-mod gl_renderer;
+mod rendering;
 
 use asset_manager::AssetsManager;
 use winit::event::{Event, WindowEvent};
@@ -21,13 +21,20 @@ use glutin::surface::SwapInterval;
 
 use glutin_winit::{self, DisplayBuilder, GlWindow};
 
-use std::ffi::CString;
-use std::fs;
 use std::num::NonZeroU32;
 
-use gl_renderer::GlRenderer;
+use log::debug;
+use log::error;
+use log::info;
+use log::warn;
+
+// use gl_renderer::GlRenderer;
+use rendering::opengl::gl_renderer::GlRenderer;
 
 fn main() {
+
+    env_logger::init();
+
     let asset_manager = AssetsManager::new("assets").unwrap();
 
     // create the window with glutin
@@ -143,7 +150,7 @@ fn main() {
                 if let Err(res) = gl_surface
                     .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
                 {
-                    eprintln!("Error setting vsync: {:?}", res);
+                    error!("Error setting vsync: {:?}", res);
                 }
 
                 assert!(state.replace((gl_context, gl_surface, window)).is_none());

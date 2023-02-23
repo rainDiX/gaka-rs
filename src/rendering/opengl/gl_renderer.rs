@@ -3,11 +3,14 @@
 */
 
 extern crate gl;
+extern crate nalgebra_glm as glm;
 
-use crate::asset_manager::AssetsManager;
+use crate::{asset_manager::AssetsManager, gl_check};
 
 use glutin::prelude::GlDisplay;
 use std::ffi::{CStr, CString};
+
+use super::utils::gl_comp_status;
 
 pub struct GlRenderer {
     program: gl::types::GLuint,
@@ -95,15 +98,15 @@ impl GlRenderer {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl_check!(gl::ClearColor(0.1, 0.1, 0.1, 1.0));
+            gl_check!(gl::Clear(gl::COLOR_BUFFER_BIT));
+            gl_check!(gl::DrawArrays(gl::TRIANGLES, 0, 3));
         }
     }
 
     pub fn resize(&self, width: i32, height: i32) {
         unsafe {
-            gl::Viewport(0, 0, width, height);
+            gl_check!(gl::Viewport(0, 0, width, height));
         }
     }
 }
@@ -128,8 +131,7 @@ unsafe fn create_shader(shader: gl::types::GLenum, source: &[u8]) -> gl::types::
     );
     gl::CompileShader(shader);
 
-    #[cfg(debug_assertions)]
-    get_shader_compile_status(shader);
+    gl_comp_status(shader);
 
     shader
 }
@@ -154,28 +156,4 @@ fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
         let s = gl::GetString(variant);
         (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
     }
-}
-
-#[cfg(debug_assertions)]
-unsafe fn get_shader_compile_status(shader: gl::types::GLuint) {
-    let mut success: gl::types::GLint = 0;
-    let mut len: gl::types::GLint = 0;
-    gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
-    gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
-
-    if success == 0 {
-        let mut info_log: Vec<i8> = Vec::with_capacity(len as usize + 1);
-        gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), info_log.as_mut_ptr());
-        eprintln!("ERROR SHADER COMPILATION FAILED");
-        eprintln!("{}", convert_info_log_to_string(&mut info_log, len));
-    }
-}
-
-#[cfg(debug_assertions)]
-fn convert_info_log_to_string(info_log: &mut Vec<i8>, len: i32) -> String {
-    let log = unsafe {
-        info_log.set_len(len as usize);
-        std::slice::from_raw_parts(info_log.as_ptr() as *const u8, info_log.len())
-    };
-    String::from_utf8(log.to_vec()).expect("Found invalid UTF-8")
 }
