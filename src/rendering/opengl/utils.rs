@@ -12,7 +12,7 @@ macro_rules! gl_check {
 #[macro_export]
 macro_rules! gl_check {
     ($fun:expr) => {{
-        let (val, err) =  ($fun, gl::GetError());
+        let (val, err) = ($fun, gl::GetError());
         if err != gl::NO_ERROR {
             let error: String = match err {
                 gl::INVALID_ENUM => "GL_INVALID_ENUM".into(),
@@ -46,6 +46,24 @@ pub unsafe fn gl_comp_status(shader: gl::types::GLuint) {
         gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), info_log.as_mut_ptr());
         eprintln!("ERROR SHADER COMPILATION FAILED");
         eprintln!("{}", convert_info_log_to_string(&mut info_log, len));
+    }
+}
+
+
+#[cfg(not(debug_assertions))]
+pub unsafe fn gl_link_status(shader: gl::types::GLuint) {}
+
+#[cfg(debug_assertions)]
+pub unsafe fn gl_link_status(program: gl::types::GLuint) {
+    let mut success: gl::types::GLint = 0;
+    let mut len: gl::types::GLint = 0;
+    gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+    gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+    if success == 0 {
+        let mut info_log: Vec<i8> = Vec::with_capacity(len as usize + 1);
+        gl::GetProgramInfoLog(program, len, std::ptr::null_mut(), info_log.as_mut_ptr());
+        println!("ERROR PROGRAM LINKING_FAILED");
+        println!("{}", convert_info_log_to_string(&mut info_log, len));
     }
 }
 

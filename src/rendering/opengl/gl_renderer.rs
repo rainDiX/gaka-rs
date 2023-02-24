@@ -10,7 +10,7 @@ use crate::{asset_manager::AssetsManager, gl_check};
 use glutin::prelude::GlDisplay;
 use std::ffi::{CStr, CString};
 
-use super::utils::gl_comp_status;
+use super::utils::{gl_comp_status, gl_link_status};
 
 pub struct GlRenderer {
     program: gl::types::GLuint,
@@ -45,6 +45,7 @@ impl GlRenderer {
             gl::AttachShader(program, fragment_shader);
 
             gl::LinkProgram(program);
+            gl_link_status(program);
 
             gl::UseProgram(program);
 
