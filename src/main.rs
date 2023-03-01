@@ -6,7 +6,7 @@ extern crate glutin;
 mod asset_manager;
 mod rendering;
 
-use asset_manager::AssetsManager;
+use asset_manager::AssetManager;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopBuilder;
 use winit::window::WindowBuilder;
@@ -35,7 +35,7 @@ fn main() {
 
     env_logger::init();
 
-    let asset_manager = AssetsManager::new("assets").unwrap();
+    let asset_manager = AssetManager::new("assets").unwrap();
 
     // create the window with glutin
 
@@ -86,26 +86,6 @@ fn main() {
             .create_context(&gl_config, &context_attributes)
             .expect("Failed to create the OpenGL context")
     });
-
-    //     // link shaders
-    //     let shader_program = gl::CreateProgram();
-    //     gl::AttachShader(shader_program, vertex_shader);
-    //     gl::AttachShader(shader_program, fragment_shader);
-    //     gl::LinkProgram(shader_program);
-    //     gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success);
-    //     if success == 0 {
-    //         let mut info_log: Vec<i8> = Vec::with_capacity(512);
-    //         let mut len = 0;
-    //         gl::GetProgramInfoLog(
-    //             shader_program,
-    //             info_log.capacity() as gl::types::GLint,
-    //             &mut len,
-    //             info_log.as_mut_ptr(),
-    //         );
-    //         println!("ERROR::SHADER::PROGRAM::LINKING_FAILED");
-    //         println!("{}", convert_info_log_to_string(&mut info_log, len));
-    //     }
-    // };
 
     let vertices: [f32; 18] = [
         // positions    // colors

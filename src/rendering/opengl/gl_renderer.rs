@@ -5,15 +5,16 @@
 extern crate gl;
 extern crate nalgebra_glm as glm;
 
-use crate::{asset_manager::AssetsManager, gl_check};
+use crate::{asset_manager::AssetManager, gl_check};
 
 use glutin::prelude::GlDisplay;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
-use super::utils::{gl_comp_status, gl_link_status};
+use super::program::{ShaderProgram, ShaderType};
+use super::utils::show_platform_informations;
 
 pub struct GlRenderer {
-    program: gl::types::GLuint,
+    program: ShaderProgram,
     vao: gl::types::GLuint,
     vbo: gl::types::GLuint,
 }
@@ -21,7 +22,7 @@ pub struct GlRenderer {
 impl GlRenderer {
     pub fn new<D: GlDisplay>(
         gl_display: &D,
-        asset_manager: &AssetsManager,
+        asset_manager: &AssetManager,
         vertex_data: &[f32],
     ) -> Self {
         unsafe {
@@ -33,24 +34,22 @@ impl GlRenderer {
             #[cfg(debug_assertions)]
             show_platform_informations();
 
-            let vertex_shader_source = asset_manager.read_cstring("shaders/vertexShader.vert").unwrap();
-            let fragment_shader_source = asset_manager.read_cstring("shaders/fragmentShader.frag").unwrap();
+            let mut program = ShaderProgram::new();
 
-            let vertex_shader = create_shader(gl::VERTEX_SHADER, vertex_shader_source.as_bytes());
-            let fragment_shader = create_shader(gl::FRAGMENT_SHADER, fragment_shader_source.as_bytes());
+            program.compile_file(
+                "shaders/vertexShader.vert",
+                ShaderType::Vertex,
+                &asset_manager,
+            ).expect("Fail to compile File");
+            program.compile_file(
+                "shaders/fragmentShader.frag",
+                ShaderType::Fragment,
+                &asset_manager,
+            ).expect("Fail to compile File");
 
-            let program = gl::CreateProgram();
+            program.link().expect("Failed to Link Program");
 
-            gl::AttachShader(program, vertex_shader);
-            gl::AttachShader(program, fragment_shader);
-
-            gl::LinkProgram(program);
-            gl_link_status(program);
-
-            gl::UseProgram(program);
-
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
+            program.set_used();
 
             let mut vao = std::mem::zeroed();
             gl::GenVertexArrays(1, &mut vao);
@@ -66,8 +65,8 @@ impl GlRenderer {
                 gl::STATIC_DRAW,
             );
 
-            let pos_attrib = gl::GetAttribLocation(program, b"position\0".as_ptr() as *const _);
-            let color_attrib = gl::GetAttribLocation(program, b"color\0".as_ptr() as *const _);
+            let pos_attrib = gl::GetAttribLocation(program.id(), b"position\0".as_ptr() as *const _);
+            let color_attrib = gl::GetAttribLocation(program.id(), b"color\0".as_ptr() as *const _);
 
             gl::VertexAttribPointer(
                 pos_attrib as gl::types::GLuint,
@@ -94,7 +93,7 @@ impl GlRenderer {
 
     pub fn draw(&self) {
         unsafe {
-            gl::UseProgram(self.program);
+            self.program.set_used().expect("Fail to use program");
 
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
@@ -105,56 +104,22 @@ impl GlRenderer {
         }
     }
 
-    pub fn resize(&self, width: i32, height: i32) {
+    pub fn set_viewport(&self, x: i32, y: i32, width: i32, height: i32) {
         unsafe {
-            gl_check!(gl::Viewport(0, 0, width, height));
+            gl_check!(gl::Viewport(x, y, width, height));
         }
+    }
+
+    pub fn resize(&self, width: i32, height: i32) {
+        self.set_viewport(0, 0, width, height);
     }
 }
 
 impl Drop for GlRenderer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteProgram(self.program);
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
         }
-    }
-}
-
-unsafe fn create_shader(shader: gl::types::GLenum, source: &[u8]) -> gl::types::GLuint {
-    let shader = gl::CreateShader(shader);
-    gl::ShaderSource(
-        shader,
-        1,
-        [source.as_ptr().cast()].as_ptr(),
-        std::ptr::null(),
-    );
-    gl::CompileShader(shader);
-
-    gl_comp_status(shader);
-
-    shader
-}
-
-#[cfg(debug_assertions)]
-fn show_platform_informations() {
-    if let Some(renderer) = get_gl_string(gl::RENDERER) {
-        eprintln!("Running on {}", renderer.to_string_lossy());
-    }
-    if let Some(version) = get_gl_string(gl::VERSION) {
-        eprintln!("OpenGL Version {}", version.to_string_lossy());
-    }
-
-    if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
-        eprintln!("Shaders version on {}", shaders_version.to_string_lossy());
-    }
-}
-
-#[cfg(debug_assertions)]
-fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
-    unsafe {
-        let s = gl::GetString(variant);
-        (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
     }
 }

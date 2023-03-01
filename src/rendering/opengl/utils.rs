@@ -1,4 +1,10 @@
+/*
+* SPDX-License-Identifier: MIT
+*/
+
 extern crate gl;
+
+use std::ffi::CStr;
 
 #[cfg(not(debug_assertions))]
 #[macro_export]
@@ -31,47 +37,30 @@ macro_rules! gl_check {
     }};
 }
 
-#[cfg(not(debug_assertions))]
-pub unsafe fn gl_comp_status(shader: gl::types::GLuint) {}
-
-#[cfg(debug_assertions)]
-pub unsafe fn gl_comp_status(shader: gl::types::GLuint) {
-    let mut success: gl::types::GLint = 0;
-    let mut len: gl::types::GLint = 0;
-    gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
-    gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
-
-    if success == 0 {
-        let mut info_log: Vec<i8> = Vec::with_capacity(len as usize + 1);
-        gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), info_log.as_mut_ptr());
-        eprintln!("ERROR SHADER COMPILATION FAILED");
-        eprintln!("{}", convert_info_log_to_string(&mut info_log, len));
-    }
-}
-
-
-#[cfg(not(debug_assertions))]
-pub unsafe fn gl_link_status(shader: gl::types::GLuint) {}
-
-#[cfg(debug_assertions)]
-pub unsafe fn gl_link_status(program: gl::types::GLuint) {
-    let mut success: gl::types::GLint = 0;
-    let mut len: gl::types::GLint = 0;
-    gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
-    gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
-    if success == 0 {
-        let mut info_log: Vec<i8> = Vec::with_capacity(len as usize + 1);
-        gl::GetProgramInfoLog(program, len, std::ptr::null_mut(), info_log.as_mut_ptr());
-        println!("ERROR PROGRAM LINKING_FAILED");
-        println!("{}", convert_info_log_to_string(&mut info_log, len));
-    }
-}
-
-#[cfg(debug_assertions)]
-fn convert_info_log_to_string(info_log: &mut Vec<i8>, len: i32) -> String {
+pub fn gl_info_log_to_string(info_log: &mut Vec<i8>, len: i32) -> String {
     let log = unsafe {
         info_log.set_len(len as usize);
         std::slice::from_raw_parts(info_log.as_ptr() as *const u8, info_log.len())
     };
     String::from_utf8(log.to_vec()).expect("Found invalid UTF-8")
+}
+
+pub fn get_gl_string(variant: gl::types::GLenum) -> Option<&'static CStr> {
+    unsafe {
+        let s = gl::GetString(variant);
+        (!s.is_null()).then(|| CStr::from_ptr(s.cast()))
+    }
+}
+
+pub fn show_platform_informations() {
+    if let Some(renderer) = get_gl_string(gl::RENDERER) {
+        log::info!("Running on {}", renderer.to_string_lossy());
+    }
+    if let Some(version) = get_gl_string(gl::VERSION) {
+        log::info!("OpenGL Version {}", version.to_string_lossy());
+    }
+
+    if let Some(shaders_version) = get_gl_string(gl::SHADING_LANGUAGE_VERSION) {
+        log::info!("Shaders version on {}", shaders_version.to_string_lossy());
+    }
 }
