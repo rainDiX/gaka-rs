@@ -5,12 +5,12 @@
 use std::ffi::CString;
 
 extern crate gl;
-use super::utils::gl_info_log_to_string;
+use super::gl_utils::gl_info_log_to_string;
 use crate::{asset_manager::AssetManager, gl_check};
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
-use gl::types::{GLenum, GLint, GLuint};
+use gl::types::{GLenum, GLint, GLuint, GLfloat};
 
 #[repr(u32)]
 pub enum ShaderType {
@@ -33,7 +33,8 @@ pub enum ProgramError {
 pub struct ShaderProgram {
     id: GLuint,
     linked: bool,
-    uniform_locations: BTreeMap<String, GLint>,
+    attribute_locations: HashMap<String, GLuint>,
+    uniform_locations: HashMap<String, GLint>,
 }
 
 impl ShaderProgram {
@@ -45,22 +46,23 @@ impl ShaderProgram {
         Self {
             id,
             linked: false,
-            uniform_locations: BTreeMap::new(),
+            attribute_locations: HashMap::new(),
+            uniform_locations: HashMap::new(),
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn id(&self) -> GLuint {
         self.id
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_linked(&self) -> bool {
         self.linked
     }
 
-    #[inline(always)]
-    pub fn set_used(&self) -> Result<(), ProgramError> {
+    #[inline]
+    pub fn activate(&self) -> Result<(), ProgramError> {
         if !self.linked {
             Err(ProgramError::NotLinked)
         } else {
@@ -71,7 +73,28 @@ impl ShaderProgram {
         }
     }
 
-    pub fn get_uniform_location(&mut self, name: &str) -> GLint {
+    pub fn set_bool(&mut self, name: &str, value: bool)
+    {     
+        unsafe{
+            gl::Uniform1i(self.get_uniform_location(name),value as GLint); 
+        }    
+    }
+
+    pub fn set_int(&mut self, name: &str, value: GLint)
+    {     
+        unsafe{
+            gl::Uniform1i(self.get_uniform_location(name),value); 
+        }    
+    }
+
+    pub fn set_float(&mut self, name: &str, value: GLfloat)
+    {     
+        unsafe{
+            gl::Uniform1f(self.get_uniform_location(name),value); 
+        }    
+    }
+
+    fn get_uniform_location(&mut self, name: &str) -> GLint {
         match self.uniform_locations.get(name) {
             Some(location) => *location,
             None => unsafe {
@@ -80,6 +103,19 @@ impl ShaderProgram {
                     gl::GetUniformLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _);
                 self.uniform_locations.insert(name.to_string(), location);
                 location
+            },
+        }
+    }
+
+    pub fn get_attribute_location(&mut self, name: &String) -> GLuint {
+        match self.attribute_locations.get(name) {
+            Some(location) => *location,
+            None => unsafe {
+                let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
+                let location =
+                    gl::GetAttribLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _);
+                self.uniform_locations.insert(name.clone(), location);
+                location as GLuint
             },
         }
     }

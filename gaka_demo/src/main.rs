@@ -2,11 +2,15 @@
 * SPDX-License-Identifier: MIT
 */
 
-extern crate glutin;
-mod asset_manager;
-mod rendering;
+use gaka_rs::asset_manager;
+use gaka_rs::geometry;
+use gaka_rs::geometry::curves::SimpleCurve;
+use gaka_rs::rendering;
 
 use asset_manager::AssetManager;
+use gaka_rs::rendering::vertex::{VertexBuffer, Vertices};
+use geometry::curves::{Bezier, Curve};
+
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopBuilder;
 use winit::window::WindowBuilder;
@@ -23,19 +27,15 @@ use glutin_winit::{self, DisplayBuilder, GlWindow};
 
 use std::num::NonZeroU32;
 
-use log::debug;
-use log::error;
-use log::info;
-use log::warn;
+use glam::{Vec2, Vec3};
 
 // use gl_renderer::GlRenderer;
 use rendering::opengl::gl_renderer::GlRenderer;
 
 fn main() {
-
     env_logger::init();
 
-    let asset_manager = AssetManager::new("assets").unwrap();
+    let asset_manager = AssetManager::new("../gaka-rs/assets", true).unwrap();
 
     // create the window with glutin
 
@@ -50,7 +50,7 @@ fn main() {
 
         let display_builder = DisplayBuilder::new().with_window_builder(Some(wb));
 
-        let (mut window, gl_config) = display_builder
+        let (window, gl_config) = display_builder
             .build(&el, template, |configs| {
                 // Find the config with the maximum number of samples, so our triangle will
                 // be smooth.
@@ -87,12 +87,28 @@ fn main() {
             .expect("Failed to create the OpenGL context")
     });
 
-    let vertices: [f32; 18] = [
-        // positions    // colors
-        0.5, -0.5, 0.0, 1.0, 0.0, 0.0, // bottom right
-        -0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom left
-        0.0, 0.5, 0.0, 0.0, 0.0, 1.0, // top
-    ];
+    // let vertex_buf: Vec<Vec3> = vec![
+    //     // positions                  // colors
+    //     Vec3::new(0.5, -0.5, 0.0), Vec3::new(1.0, 0.0, 0.0), // bottom right
+    //     Vec3::new(-0.5, -0.5, 0.0),Vec3::new(0.0, 1.0, 0.0), // bottom left
+    //     Vec3::new(0.0, 0.5, 0.0),Vec3::new(0.0, 0.0, 1.0), // top
+    // ];
+
+    // let mut attributes: Vec<String> = Vec::new();
+
+    // attributes.push("position".to_owned());
+    // attributes.push("color".to_owned());
+
+    // let vertices = Vertices::new::<f32>(VertexBuffer::Array(vertex_buf), attributes);
+
+    let mut bezier = Bezier::new();
+
+    bezier.register_point2d(Vec2::new(0.5, -0.5));
+    bezier.register_point2d(Vec2::new(-0.5, -0.5));
+    bezier.register_point2d(Vec2::new(0.0, 0.5));
+
+    let bezier_vertices = Vertices::from_curve(&mut bezier);
+    // let curve_vertices = Vertices::from_curve(&mut SimpleCurve::from(bezier.ctrl_curve()));
 
     let mut state = None;
     let mut renderer = None;
@@ -123,14 +139,14 @@ fn main() {
                     .unwrap();
 
                 renderer.get_or_insert_with(|| {
-                    GlRenderer::new(&gl_display, &asset_manager, &vertices)
+                    GlRenderer::new(&gl_display, &asset_manager, &bezier_vertices)
                 });
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
                     .set_swap_interval(&gl_context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
                 {
-                    error!("Error setting vsync: {:?}", res);
+                    log::error!("Error setting vsync: {:?}", res);
                 }
 
                 assert!(state.replace((gl_context, gl_surface, window)).is_none());

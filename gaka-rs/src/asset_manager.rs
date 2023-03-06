@@ -12,6 +12,7 @@ use std::time::Duration;
 pub enum Error {
     Io(io::Error),
     NulError,
+    FailedToGetCurrentDirPath,
     FailedToGetExePath,
     FailedToGetExeDir,
     DirDoesNotExist,
@@ -28,17 +29,32 @@ pub struct AssetManager {
 }
 
 impl AssetManager {
-    pub fn new(root_dir: &str) -> Result<AssetManager, Error> {
-        let exe_path = std::env::current_exe().map_err(|_| Error::FailedToGetExePath)?;
-        let exe_dir = exe_path.parent().ok_or(Error::FailedToGetExeDir)?;
-        let root_dir = exe_dir.join(root_dir);
+    pub fn new(root_dir: &str, working_directory: bool) -> Result<AssetManager, Error> {
+        let root_dir = {
+            if working_directory {
+                let cwd_path =
+                    std::env::current_dir().map_err(|_| Error::FailedToGetCurrentDirPath)?;
+                log::debug!(
+                    "Current working directory is {}",
+                    cwd_path.to_str().unwrap()
+                );
+                cwd_path.join(root_dir)
+            } else {
+                let exe_path = std::env::current_exe().map_err(|_| Error::FailedToGetExePath)?;
+                let exe_dir = exe_path.parent().ok_or(Error::FailedToGetExeDir)?;
+                log::debug!("Executable directory is {}", exe_dir.to_str().unwrap());
+                exe_dir.join(root_dir)
+            }
+        };
 
         #[cfg(debug_assertions)]
-        log::info!("Creating AssetManager with root path : {}", root_dir.to_str().unwrap());
+        log::info!(
+            "Creating AssetManager with root path : {}",
+            root_dir.to_str().unwrap()
+        );
 
         if root_dir.exists() {
-            Ok(AssetManager {
-                root_dir: root_dir })
+            Ok(AssetManager { root_dir: root_dir })
         } else {
             Err(Error::DirDoesNotExist)
         }
