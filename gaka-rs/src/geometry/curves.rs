@@ -64,7 +64,7 @@ impl Curve for Bezier {
         Self {
             ctrl_points: Vec::new(),
             curve_points: Vec::new(),
-            constructed: false,
+            constructed: true,
             eps: 0.01,
         }
     }

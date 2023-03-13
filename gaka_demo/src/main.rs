@@ -14,8 +14,11 @@ use gaka_rs::rendering::opengl::gl_program::ShaderType;
 use gaka_rs::rendering::vertex::{VertexBuffer, Vertices};
 use geometry::curves::{Bezier, Curve};
 
+use winit::event::ElementState;
+use winit::event::MouseButton;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopBuilder;
+use winit::window;
 use winit::window::WindowBuilder;
 
 use raw_window_handle::HasRawWindowHandle;
@@ -93,31 +96,15 @@ fn main() {
             .expect("Failed to create the OpenGL context")
     });
 
-    let vertex_buf: Vec<Vec3> = vec![
-        // positions                  // colors
-        Vec3::new(0.5, -0.5, 0.0),
-        Vec3::new(1.0, 0.0, 0.0), // bottom right
-        Vec3::new(-0.5, -0.5, 0.0),
-        Vec3::new(0.0, 1.0, 0.0), // bottom left
-        Vec3::new(0.0, 0.5, 0.0),
-        Vec3::new(0.0, 0.0, 1.0), // top
-    ];
-    let mut attributes: Vec<String> = Vec::new();
-    attributes.push("position".to_owned());
-    attributes.push("color".to_owned());
-    let vertices = Vertices::new::<f32>(VertexBuffer::Array(vertex_buf), attributes);
-
     let mut bezier = Bezier::new();
-
-    bezier.register_point2d(Vec2::new(0.5, -0.5));
-    bezier.register_point2d(Vec2::new(-0.5, -0.5));
-    bezier.register_point2d(Vec2::new(0.0, 0.5));
 
     let bezier_vertices = Vertices::from_curve(&mut bezier);
     let curve_vertices = Vertices::from_curve(&mut bezier.ctrl_curve());
 
     let mut state = None;
-    let mut renderer = GlRenderer::new(&gl_display, &asset_manager);
+    let mut renderer = GlRenderer::new(&gl_display);
+    let mut mouse_position = Vec2::new(0.0, 0.0);
+    let mut winddow_size = Vec2::new(800.0, 600.0);
 
     event_loop.run(move |event, window_target, control_flow| {
         control_flow.set_wait();
@@ -143,18 +130,6 @@ fn main() {
                     .unwrap()
                     .make_current(&gl_surface)
                     .unwrap();
-
-                let mut triangle_program = ShaderProgram::new();
-                triangle_program
-                    .compile_file("shaders/triangle.vert", ShaderType::Vertex, &asset_manager)
-                    .expect("Fail to compile File");
-                triangle_program
-                    .compile_file("shaders/triangle.frag", ShaderType::Fragment, &asset_manager)
-                    .expect("Fail to compile File");
-                triangle_program.link().expect("Failed to Link Program");
-
-                let triangle_program = Rc::new(triangle_program);
-                renderer.add_object(GlOject::new(&vertices, triangle_program.clone()));
 
                 let mut curve_program = ShaderProgram::new();
                 curve_program
@@ -200,8 +175,35 @@ fn main() {
                             );
                         }
                         renderer.resize(size.width as i32, size.height as i32);
+                        winddow_size.x = size.width as f32;
+                        winddow_size.y = size.height as f32;
                     }
                 }
+                WindowEvent::CursorMoved {
+                    device_id: _,
+                    position,
+                    ..
+                } => {
+                    mouse_position.x = 2. * position.x as f32 / winddow_size.x - 1.;
+                    mouse_position.y = -(2. * position.y as f32 / winddow_size.y - 1.);
+                }
+                WindowEvent::MouseInput {
+                    device_id: _,
+                    state: button_state,
+                    button,
+                    ..
+                } => match (button, button_state) {
+                    (MouseButton::Left, ElementState::Pressed) => {
+                        if let Some((_, _, window)) = &state {
+                            bezier.register_point2d(mouse_position);
+                            let mut objects = renderer.get_objects();
+                            objects[0].update(Vertices::from_curve(&mut bezier.ctrl_curve()).buffer);
+                            objects[1].update(Vertices::from_curve(&mut bezier).buffer);
+                            window.request_redraw();
+                        }
+                    }
+                    _ => (),
+                },
                 WindowEvent::CloseRequested => control_flow.set_exit(),
                 _ => (),
             },

@@ -2,24 +2,25 @@
 * SPDX-License-Identifier: MIT
 */
 
-use crate::rendering::vertex::Vertices;
+// use crate::rendering::vertex::Vertices;
 use crate::{asset_manager::AssetManager, gl_check};
 
 use glutin::prelude::GlDisplay;
+use std::cell::{RefCell, RefMut};
 use std::ffi::CString;
+use std::ops::Deref;
 
-use super::gl_program::{ShaderProgram, ShaderType};
+// use super::gl_program::{ShaderProgram, ShaderType};
 use super::gl_utils::show_platform_informations;
 use super::gl_object::GlOject;
 
 pub struct GlRenderer {
-    objects: Vec<GlOject>,
+    objects: RefCell<Vec<GlOject>>,
 }
 
 impl GlRenderer {
     pub fn new<D: GlDisplay>(
-        gl_display: &D,
-        asset_manager: &AssetManager,
+        gl_display: &D
     ) -> Self {
         unsafe {
             gl::load_with(|symbol| {
@@ -31,12 +32,16 @@ impl GlRenderer {
             show_platform_informations();
 
             gl::Enable(gl::LINE_SMOOTH);
-            Self { objects: Vec::new() }
+            Self { objects: RefCell::new(Vec::new()) }
         }
     }
 
     pub fn add_object(&mut self, object: GlOject) {
-        self.objects.push(object)
+        self.objects.borrow_mut().push(object);
+    }
+
+    pub fn get_objects(&self) -> RefMut<Vec<GlOject>> {
+        self.objects.borrow_mut()
     }
 
     pub fn draw(&self) {
@@ -44,7 +49,7 @@ impl GlRenderer {
             gl_check!(gl::ClearColor(0.1, 0.1, 0.1, 1.0));
             gl_check!(gl::Clear(gl::COLOR_BUFFER_BIT));
 
-            for object in &self.objects {
+            for object in self.objects.borrow().deref() {
                 object.draw();
             }
         }

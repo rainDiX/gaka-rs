@@ -84,6 +84,7 @@ impl GlOject {
         let verts = match vertices {
             VertexBuffer::Array(verts) => verts,
             VertexBuffer::Indexed(verts, indices) => {
+                self.index_count = indices.len() as GLint;
                 unsafe {
                     gl_check!(gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo));
                     gl_check!(gl::BufferData(
