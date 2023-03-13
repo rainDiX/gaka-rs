@@ -8,6 +8,9 @@ use gaka_rs::geometry::curves::SimpleCurve;
 use gaka_rs::rendering;
 
 use asset_manager::AssetManager;
+use gaka_rs::rendering::opengl::gl_object::GlOject;
+use gaka_rs::rendering::opengl::gl_program::ShaderProgram;
+use gaka_rs::rendering::opengl::gl_program::ShaderType;
 use gaka_rs::rendering::vertex::{VertexBuffer, Vertices};
 use geometry::curves::{Bezier, Curve};
 
@@ -26,8 +29,11 @@ use glutin::surface::SwapInterval;
 use glutin_winit::{self, DisplayBuilder, GlWindow};
 
 use std::num::NonZeroU32;
+use std::rc::Rc;
 
-use glam::{Vec2, Vec3};
+use nalgebra_glm as glm;
+
+use glm::{Vec2, Vec3};
 
 // use gl_renderer::GlRenderer;
 use rendering::opengl::gl_renderer::GlRenderer;
@@ -87,19 +93,19 @@ fn main() {
             .expect("Failed to create the OpenGL context")
     });
 
-    // let vertex_buf: Vec<Vec3> = vec![
-    //     // positions                  // colors
-    //     Vec3::new(0.5, -0.5, 0.0), Vec3::new(1.0, 0.0, 0.0), // bottom right
-    //     Vec3::new(-0.5, -0.5, 0.0),Vec3::new(0.0, 1.0, 0.0), // bottom left
-    //     Vec3::new(0.0, 0.5, 0.0),Vec3::new(0.0, 0.0, 1.0), // top
-    // ];
-
-    // let mut attributes: Vec<String> = Vec::new();
-
-    // attributes.push("position".to_owned());
-    // attributes.push("color".to_owned());
-
-    // let vertices = Vertices::new::<f32>(VertexBuffer::Array(vertex_buf), attributes);
+    let vertex_buf: Vec<Vec3> = vec![
+        // positions                  // colors
+        Vec3::new(0.5, -0.5, 0.0),
+        Vec3::new(1.0, 0.0, 0.0), // bottom right
+        Vec3::new(-0.5, -0.5, 0.0),
+        Vec3::new(0.0, 1.0, 0.0), // bottom left
+        Vec3::new(0.0, 0.5, 0.0),
+        Vec3::new(0.0, 0.0, 1.0), // top
+    ];
+    let mut attributes: Vec<String> = Vec::new();
+    attributes.push("position".to_owned());
+    attributes.push("color".to_owned());
+    let vertices = Vertices::new::<f32>(VertexBuffer::Array(vertex_buf), attributes);
 
     let mut bezier = Bezier::new();
 
@@ -108,10 +114,10 @@ fn main() {
     bezier.register_point2d(Vec2::new(0.0, 0.5));
 
     let bezier_vertices = Vertices::from_curve(&mut bezier);
-    // let curve_vertices = Vertices::from_curve(&mut SimpleCurve::from(bezier.ctrl_curve()));
+    let curve_vertices = Vertices::from_curve(&mut bezier.ctrl_curve());
 
     let mut state = None;
-    let mut renderer = None;
+    let mut renderer = GlRenderer::new(&gl_display, &asset_manager);
 
     event_loop.run(move |event, window_target, control_flow| {
         control_flow.set_wait();
@@ -138,9 +144,30 @@ fn main() {
                     .make_current(&gl_surface)
                     .unwrap();
 
-                renderer.get_or_insert_with(|| {
-                    GlRenderer::new(&gl_display, &asset_manager, &bezier_vertices)
-                });
+                let mut triangle_program = ShaderProgram::new();
+                triangle_program
+                    .compile_file("shaders/triangle.vert", ShaderType::Vertex, &asset_manager)
+                    .expect("Fail to compile File");
+                triangle_program
+                    .compile_file("shaders/triangle.frag", ShaderType::Fragment, &asset_manager)
+                    .expect("Fail to compile File");
+                triangle_program.link().expect("Failed to Link Program");
+
+                let triangle_program = Rc::new(triangle_program);
+                renderer.add_object(GlOject::new(&vertices, triangle_program.clone()));
+
+                let mut curve_program = ShaderProgram::new();
+                curve_program
+                    .compile_file("shaders/curve.vert", ShaderType::Vertex, &asset_manager)
+                    .expect("Fail to compile File");
+                curve_program
+                    .compile_file("shaders/curve.frag", ShaderType::Fragment, &asset_manager)
+                    .expect("Fail to compile File");
+                curve_program.link().expect("Failed to Link Program");
+
+                let curve_program = Rc::new(curve_program);
+                renderer.add_object(GlOject::new(&curve_vertices, curve_program.clone()));
+                renderer.add_object(GlOject::new(&bezier_vertices, curve_program));
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
@@ -153,7 +180,6 @@ fn main() {
             }
             Event::RedrawRequested(_) => {
                 if let Some((gl_context, gl_surface, _)) = &state {
-                    let renderer = renderer.as_ref().unwrap();
                     renderer.draw();
                     // window.request_redraw();
                     gl_surface.swap_buffers(gl_context).unwrap();
@@ -173,7 +199,6 @@ fn main() {
                                 NonZeroU32::new(size.height).unwrap(),
                             );
                         }
-                        let renderer = renderer.as_ref().unwrap();
                         renderer.resize(size.width as i32, size.height as i32);
                     }
                 }

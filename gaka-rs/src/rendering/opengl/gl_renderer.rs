@@ -10,18 +10,16 @@ use std::ffi::CString;
 
 use super::gl_program::{ShaderProgram, ShaderType};
 use super::gl_utils::show_platform_informations;
-use super::gl_vertex::GlVertices;
+use super::gl_object::GlOject;
 
 pub struct GlRenderer {
-    program: ShaderProgram,
-    vertices: GlVertices,
+    objects: Vec<GlOject>,
 }
 
 impl GlRenderer {
-    pub fn new<D: GlDisplay, T>(
+    pub fn new<D: GlDisplay>(
         gl_display: &D,
         asset_manager: &AssetManager,
-        vertices: &Vertices<T>,
     ) -> Self {
         unsafe {
             gl::load_with(|symbol| {
@@ -32,39 +30,23 @@ impl GlRenderer {
             #[cfg(debug_assertions)]
             show_platform_informations();
 
-            let mut program = ShaderProgram::new();
-
-            program
-                .compile_file("shaders/curve.vert", ShaderType::Vertex, &asset_manager)
-                .expect("Fail to compile File");
-            program
-                .compile_file("shaders/curve.frag", ShaderType::Fragment, &asset_manager)
-                .expect("Fail to compile File");
-
-            program.link().expect("Failed to Link Program");
-
-            let vertices = GlVertices::new(&vertices, &mut program);
-
             gl::Enable(gl::LINE_SMOOTH);
-            Self { program, vertices }
+            Self { objects: Vec::new() }
         }
+    }
+
+    pub fn add_object(&mut self, object: GlOject) {
+        self.objects.push(object)
     }
 
     pub fn draw(&self) {
         unsafe {
-            self.program.activate().expect("Fail to use program");
-
-            self.vertices.bind();
-
             gl_check!(gl::ClearColor(0.1, 0.1, 0.1, 1.0));
             gl_check!(gl::Clear(gl::COLOR_BUFFER_BIT));
-            // gl_check!(gl::DrawArrays(gl::TRIANGLES, 0, 3));
-            gl_check!(gl::DrawElements(
-                gl::LINES,
-                self.vertices.index_count(),
-                gl::UNSIGNED_INT,
-                std::ptr::null()
-            ));
+
+            for object in &self.objects {
+                object.draw();
+            }
         }
     }
 

@@ -1,8 +1,8 @@
 /*
 * SPDX-License-Identifier: MIT
 */
-
-use glam::Vec4;
+use nalgebra_glm as glm;
+use glm::{Vec3};
 
 use crate::geometry::curves::Curve;
 
@@ -44,7 +44,7 @@ impl<T> Vertices<T> {
     }
 }
 
-impl Vertices<Vec4> {
+impl Vertices<Vec3> {
     pub fn from_curve<C: Curve>(curve: &mut C) -> Self {
         let vertex_data = curve.curve();
         let indices = {
@@ -59,8 +59,8 @@ impl Vertices<Vec4> {
         };
         let desc = vec![VertexDesc {
             attribute: "position".to_owned(),
-            size: 4,
-            stride: std::mem::size_of::<Vec4>(),
+            size: 3,
+            stride: std::mem::size_of::<Vec3>(),
             offset: 0,
         }];
         Self {

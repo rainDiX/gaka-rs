@@ -11,8 +11,8 @@ winit = { version = "^0.28" }
 raw-window-handle = "^0.5"
 glutin = { version = "^0.30" }
 glutin-winit = { version = "^0.3" }
-glam = "0.23.0"
 gaka-rs = { path = "../gaka-rs" }
+nalgebra-glm = "0.18.0"
 
 env_logger = "0.10.0"
 log = "0.4.17"

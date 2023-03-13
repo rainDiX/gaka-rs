@@ -1,6 +1,9 @@
+use std::borrow::BorrowMut;
 /*
 * SPDX-License-Identifier: MIT
 */
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::rendering::vertex::VertexBuffer;
 use crate::rendering::vertex::VertexDesc;
@@ -11,39 +14,42 @@ use crate::gl_check;
 
 use super::gl_program::ShaderProgram;
 
-pub struct GlVertices {
+pub struct GlOject {
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
     index_count: GLint,
+    program: Rc<ShaderProgram>,
 }
 
-impl GlVertices {
-    pub fn new<T>(vertices: &Vertices<T>, program: &mut ShaderProgram) -> Self {
+impl GlOject {
+    pub fn new<T>(vertices: &Vertices<T>, program: Rc<ShaderProgram>) -> Self {
         let mut vao: GLuint = 0;
         let mut vbo: GLuint = 0;
         let mut ebo: GLuint = 0;
         match &vertices.buffer {
             VertexBuffer::Array(v) => {
                 setup_vertex_objects(&mut vao, &mut vbo, v);
-                setup_attrib_pointer(&vertices.desc, program);
+                setup_attrib_pointer(&vertices.desc, &program);
                 Self {
                     vao,
                     vbo,
                     ebo,
                     index_count: 0,
+                    program,
                 }
             }
             VertexBuffer::Indexed(v, indices) => {
                 let index_count = indices.len() as GLint;
                 setup_vertex_objects(&mut vao, &mut vbo, v);
                 setup_element_objects(&mut ebo, indices);
-                setup_attrib_pointer(&vertices.desc, program);
+                setup_attrib_pointer(&vertices.desc, &program);
                 Self {
                     vao,
                     vbo,
                     ebo,
                     index_count,
+                    program,
                 }
             }
         }
@@ -57,11 +63,26 @@ impl GlVertices {
         }
     }
 
-    pub fn update<T>(&mut self, vertices: VertexBuffer<T>) {
-        let verts= match vertices {
-            VertexBuffer::Array(verts) => {
-                verts
+    pub fn draw(&self) {
+        unsafe {
+            self.bind();
+            self.program.activate().expect("Fail to use program");
+            if self.index_count > 0 {
+                gl_check!(gl::DrawElements(
+                    gl::LINES,
+                    self.index_count,
+                    gl::UNSIGNED_INT,
+                    std::ptr::null()
+                ));
+            } else {
+                gl_check!(gl::DrawArrays(gl::TRIANGLES, 0, 3));
             }
+        }
+    }
+
+    pub fn update<T>(&mut self, vertices: VertexBuffer<T>) {
+        let verts = match vertices {
+            VertexBuffer::Array(verts) => verts,
             VertexBuffer::Indexed(verts, indices) => {
                 unsafe {
                     gl_check!(gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo));
@@ -71,7 +92,6 @@ impl GlVertices {
                         indices.as_ptr() as *const _,
                         gl::STATIC_DRAW,
                     ));
-                    
                 };
                 verts
             }
@@ -86,13 +106,9 @@ impl GlVertices {
             ));
         };
     }
-
-    pub fn index_count(&self) -> GLint {
-        self.index_count
-    }
 }
 
-impl Drop for GlVertices {
+impl Drop for GlOject {
     fn drop(&mut self) {
         unsafe {
             if self.vbo > 0 {
@@ -139,7 +155,7 @@ fn setup_element_objects(ebo: &mut u32, indices: &Vec<GLuint>) {
 }
 
 #[inline]
-fn setup_attrib_pointer(descs: &Vec<VertexDesc>, program: &mut ShaderProgram) {
+fn setup_attrib_pointer(descs: &Vec<VertexDesc>, program: &ShaderProgram) {
     for desc in descs {
         unsafe {
             let location = program.get_attribute_location(&desc.attribute);

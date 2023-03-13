@@ -8,9 +8,10 @@ extern crate gl;
 use super::gl_utils::gl_info_log_to_string;
 use crate::{asset_manager::AssetManager, gl_check};
 
-use std::collections::HashMap;
+use nalgebra_glm as glm;
 
-use gl::types::{GLenum, GLint, GLuint, GLfloat};
+use gl::types::{GLenum, GLfloat, GLint, GLuint};
+use glm::{Mat3, Mat4, Vec3, Vec4};
 
 #[repr(u32)]
 pub enum ShaderType {
@@ -33,8 +34,6 @@ pub enum ProgramError {
 pub struct ShaderProgram {
     id: GLuint,
     linked: bool,
-    attribute_locations: HashMap<String, GLuint>,
-    uniform_locations: HashMap<String, GLint>,
 }
 
 impl ShaderProgram {
@@ -43,12 +42,7 @@ impl ShaderProgram {
         unsafe {
             id = gl::CreateProgram();
         }
-        Self {
-            id,
-            linked: false,
-            attribute_locations: HashMap::new(),
-            uniform_locations: HashMap::new(),
-        }
+        Self { id, linked: false }
     }
 
     #[inline]
@@ -73,55 +67,88 @@ impl ShaderProgram {
         }
     }
 
-    pub fn set_bool(&mut self, name: &str, value: bool)
-    {     
-        unsafe{
-            gl::Uniform1i(self.get_uniform_location(name),value as GLint); 
-        }    
-    }
-
-    pub fn set_int(&mut self, name: &str, value: GLint)
-    {     
-        unsafe{
-            gl::Uniform1i(self.get_uniform_location(name),value); 
-        }    
-    }
-
-    pub fn set_float(&mut self, name: &str, value: GLfloat)
-    {     
-        unsafe{
-            gl::Uniform1f(self.get_uniform_location(name),value); 
-        }    
-    }
-
-    fn get_uniform_location(&mut self, name: &str) -> GLint {
-        match self.uniform_locations.get(name) {
-            Some(location) => *location,
-            None => unsafe {
-                let cname = CString::new(name).expect("Failed to convert name to CString");
-                let location =
-                    gl::GetUniformLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _);
-                self.uniform_locations.insert(name.to_string(), location);
-                location
-            },
+    pub fn set_bool(&mut self, name: &str, value: bool) {
+        unsafe {
+            gl_check!(gl::Uniform1i(
+                self.get_uniform_location(name),
+                value as GLint
+            ));
         }
     }
 
-    pub fn get_attribute_location(&mut self, name: &String) -> GLuint {
-        match self.attribute_locations.get(name) {
-            Some(location) => *location,
-            None => unsafe {
-                let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
-                let location =
-                    gl::GetAttribLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _);
-                self.uniform_locations.insert(name.clone(), location);
-                location as GLuint
-            },
+    pub fn set_int(&mut self, name: &str, value: GLint) {
+        unsafe {
+            gl_check!(gl::Uniform1i(self.get_uniform_location(name), value));
+        }
+    }
+
+    pub fn set_float(&mut self, name: &str, value: GLfloat) {
+        unsafe {
+            gl_check!(gl::Uniform1f(self.get_uniform_location(name), value));
+        }
+    }
+
+    pub fn set_vec3(&mut self, name: &str, value: &Vec3) {
+        unsafe {
+            gl_check!(gl::Uniform3f(
+                self.get_uniform_location(name),
+                value.x,
+                value.y,
+                value.z
+            ));
+        }
+    }
+
+    pub fn set_vec4(&mut self, name: &str, value: &Vec4) {
+        unsafe {
+            gl_check!(gl::Uniform4f(
+                self.get_uniform_location(name),
+                value.x,
+                value.y,
+                value.z,
+                value.w
+            ));
+        }
+    }
+
+    pub fn set_mat3(&mut self, name: &str, value: &Mat3) {
+        unsafe {
+            gl_check!(gl::UniformMatrix3fv(
+                self.get_uniform_location(name),
+                1,
+                gl::FALSE,
+                value.as_ptr()
+            ));
+        }
+    }
+
+    pub fn set_mat4(&mut self, name: &str, value: &Mat4) {
+        unsafe {
+            gl_check!(gl::UniformMatrix4fv(
+                self.get_uniform_location(name),
+                1,
+                gl::FALSE,
+                value.as_ptr()
+            ));
+        }
+    }
+
+    fn get_uniform_location(&self, name: &str) -> GLint {
+        unsafe {
+            let cname = CString::new(name).expect("Failed to convert name to CString");
+            gl::GetUniformLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _)
+        }
+    }
+
+    pub fn get_attribute_location(&self, name: &String) -> GLuint {
+        unsafe {
+            let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
+            gl::GetAttribLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _) as GLuint
         }
     }
 
     pub fn compile_source(
-        &mut self,
+        &self,
         source: &CString,
         shader_type: GLenum,
     ) -> Result<(), ProgramError> {
@@ -151,7 +178,7 @@ impl ShaderProgram {
     }
 
     pub fn compile_file(
-        &mut self,
+        &self,
         rel_path: &str,
         shader_type: ShaderType,
         asset_manager: &AssetManager,
@@ -228,3 +255,10 @@ unsafe fn gl_shader_log(shader: GLuint) {
     gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), info_log.as_mut_ptr());
     log::error!("{}", gl_info_log_to_string(&mut info_log, len));
 }
+
+// class GLSLProgram
+// {
+//   void validate()  throw(GLSLProgramException);
+
+//   void   bindAttribLocation( GLuint location, const char * name);
+//   void   bindFragDataLocation( GLuint location, const char * name );
