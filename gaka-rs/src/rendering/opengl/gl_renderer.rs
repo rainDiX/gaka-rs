@@ -32,6 +32,7 @@ impl GlRenderer {
             show_platform_informations();
 
             gl::Enable(gl::LINE_SMOOTH);
+            gl::Hint(gl::LINE_SMOOTH_HINT,  gl::NICEST);
             Self { objects: RefCell::new(Vec::new()) }
         }
     }

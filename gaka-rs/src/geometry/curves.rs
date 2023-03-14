@@ -47,13 +47,13 @@ pub struct Bezier {
 }
 
 #[inline]
-fn de_casteljau(t: f32, points: &Vec<Vec3>) -> Vec3 {
-    let mut beta = points.clone();
+fn de_casteljau(t: f32, points: &[Vec3]) -> Vec3 {
+    let mut beta = points.to_vec();
     let n = points.len();
 
     for i in 1..n {
         for j in 0..(n - i) {
-            beta[j] = beta[j] * (1.0 - t) + beta[j + 1] * t
+            beta[j] = beta[j] * (1.0 - t) + beta[j + 1] * t;
         }
     }
     beta[0]
@@ -65,7 +65,7 @@ impl Curve for Bezier {
             ctrl_points: Vec::new(),
             curve_points: Vec::new(),
             constructed: true,
-            eps: 0.01,
+            eps: 0.001,
         }
     }
 
@@ -84,9 +84,16 @@ impl Curve for Bezier {
         if !self.constructed {
             self.curve_points.clear();
             let mut t: f32 = 0.0;
-            while t <= 1.0 {
-                t += self.eps;
-                self.curve_points.push(de_casteljau(t, &self.ctrl_points));
+            let mut i = 0;
+            while i < self.ctrl_points.len() {
+                let j = std::cmp::min(i + 4, self.ctrl_points.len());
+                while t <= 1.0 {
+                    t += self.eps;
+                    self.curve_points
+                        .push(de_casteljau(t, &self.ctrl_points[i..j]));
+                }
+                t = 0.0;
+                i = i + 3;
             }
         }
         self.curve_points.clone()
