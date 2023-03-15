@@ -11,7 +11,7 @@ use crate::{asset_manager::AssetManager, gl_check};
 use nalgebra_glm as glm;
 
 use gl::types::{GLenum, GLfloat, GLint, GLuint};
-use glm::{Mat3, Mat4, Vec3, Vec4};
+use glm::{Mat3, Mat4, Vec2, Vec3, Vec4};
 
 #[repr(u32)]
 pub enum ShaderType {
@@ -64,72 +64,6 @@ impl ShaderProgram {
                 gl_check!(gl::UseProgram(self.id));
             }
             Ok(())
-        }
-    }
-
-    pub fn set_bool(&mut self, name: &str, value: bool) {
-        unsafe {
-            gl_check!(gl::Uniform1i(
-                self.get_uniform_location(name),
-                value as GLint
-            ));
-        }
-    }
-
-    pub fn set_int(&mut self, name: &str, value: GLint) {
-        unsafe {
-            gl_check!(gl::Uniform1i(self.get_uniform_location(name), value));
-        }
-    }
-
-    pub fn set_float(&mut self, name: &str, value: GLfloat) {
-        unsafe {
-            gl_check!(gl::Uniform1f(self.get_uniform_location(name), value));
-        }
-    }
-
-    pub fn set_vec3(&mut self, name: &str, value: &Vec3) {
-        unsafe {
-            gl_check!(gl::Uniform3f(
-                self.get_uniform_location(name),
-                value.x,
-                value.y,
-                value.z
-            ));
-        }
-    }
-
-    pub fn set_vec4(&mut self, name: &str, value: &Vec4) {
-        unsafe {
-            gl_check!(gl::Uniform4f(
-                self.get_uniform_location(name),
-                value.x,
-                value.y,
-                value.z,
-                value.w
-            ));
-        }
-    }
-
-    pub fn set_mat3(&mut self, name: &str, value: &Mat3) {
-        unsafe {
-            gl_check!(gl::UniformMatrix3fv(
-                self.get_uniform_location(name),
-                1,
-                gl::FALSE,
-                value.as_ptr()
-            ));
-        }
-    }
-
-    pub fn set_mat4(&mut self, name: &str, value: &Mat4) {
-        unsafe {
-            gl_check!(gl::UniformMatrix4fv(
-                self.get_uniform_location(name),
-                1,
-                gl::FALSE,
-                value.as_ptr()
-            ));
         }
     }
 
@@ -229,6 +163,103 @@ impl ShaderProgram {
         }
     }
 }
+
+trait SetUniform<T> {
+    fn set_uniform(&mut self, name: &str, value: &T);
+}
+
+impl SetUniform<bool> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &bool) {
+        unsafe {
+            gl_check!(gl::Uniform1i(
+                self.get_uniform_location(name),
+                *value as GLint
+            ));
+        }
+    }
+}
+
+impl SetUniform<GLint> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &GLint) {
+        unsafe {
+            gl_check!(gl::Uniform1i(self.get_uniform_location(name), *value));
+        }
+    }
+}
+
+impl SetUniform<GLfloat> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &GLfloat) {
+        unsafe {
+            gl_check!(gl::Uniform1f(self.get_uniform_location(name), *value));
+        }
+    }
+}
+
+impl SetUniform<Vec2> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &Vec2) {
+        unsafe {
+            gl_check!(gl::Uniform2f(
+                self.get_uniform_location(name),
+                value.x,
+                value.y
+            ));
+        }
+    }
+}
+
+impl SetUniform<Vec3> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &Vec3) {
+        unsafe {
+            gl_check!(gl::Uniform3f(
+                self.get_uniform_location(name),
+                value.x,
+                value.y,
+                value.z
+            ));
+        }
+    }
+}
+
+impl SetUniform<Vec4> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &Vec4) {
+        unsafe {
+            gl_check!(gl::Uniform4f(
+                self.get_uniform_location(name),
+                value.x,
+                value.y,
+                value.z,
+                value.w
+            ));
+        }
+    }
+}
+
+impl SetUniform<Mat3> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &Mat3) {
+        unsafe {
+            gl_check!(gl::UniformMatrix3fv(
+                self.get_uniform_location(name),
+                1,
+                gl::FALSE,
+                value.as_ptr()
+            ));
+        }
+    }
+}
+
+impl SetUniform<Mat4> for ShaderProgram {
+    fn set_uniform(&mut self, name: &str, value: &Mat4) {
+        unsafe {
+            gl_check!(gl::UniformMatrix4fv(
+                self.get_uniform_location(name),
+                1,
+                gl::FALSE,
+                value.as_ptr()
+            ));
+        }
+    }
+}
+
 
 impl Drop for ShaderProgram {
     fn drop(&mut self) {

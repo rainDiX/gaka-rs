@@ -8,17 +8,35 @@ use std::rc::Rc;
 use crate::rendering::vertex::VertexBuffer;
 use crate::rendering::vertex::VertexDesc;
 use crate::rendering::vertex::Vertices;
-use gl::types::{GLint, GLsizei, GLsizeiptr, GLuint};
+use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 
 use crate::gl_check;
 
 use super::gl_program::ShaderProgram;
+
+#[repr(u32)]
+#[derive(Debug)]
+#[derive(Clone, Copy)]
+pub enum DrawingMode {
+    Points = gl::POINTS,
+    Lines = gl::LINES,
+    LineLoop = gl::LINE_LOOP,
+    LineStrip = gl::LINE_STRIP,
+    Triangles = gl::TRIANGLES,
+    TriangleStrip = gl::TRIANGLE_STRIP,
+    TriangleFan = gl::TRIANGLE_FAN,
+    LinesAdjacency = gl::LINES_ADJACENCY,
+    LineStripAdjacency = gl::LINE_STRIP_ADJACENCY,
+    TrianglesAdjacency = gl::TRIANGLES_ADJACENCY,
+    TrianglesStripAdjacency = gl::TRIANGLE_STRIP_ADJACENCY,
+}
 
 pub struct GlOject {
     vao: GLuint,
     vbo: GLuint,
     ebo: GLuint,
     index_count: GLint,
+    drawing_mode: DrawingMode,
     program: Rc<ShaderProgram>,
 }
 
@@ -36,6 +54,7 @@ impl GlOject {
                     vbo,
                     ebo,
                     index_count: 0,
+                    drawing_mode: DrawingMode::Triangles,
                     program,
                 }
             }
@@ -49,6 +68,7 @@ impl GlOject {
                     vbo,
                     ebo,
                     index_count,
+                    drawing_mode: DrawingMode::Triangles,
                     program,
                 }
             }
@@ -69,13 +89,13 @@ impl GlOject {
             self.program.activate().expect("Fail to use program");
             if self.index_count > 0 {
                 gl_check!(gl::DrawElements(
-                    gl::LINES,
+                    self.drawing_mode as u32,
                     self.index_count,
                     gl::UNSIGNED_INT,
                     std::ptr::null()
                 ));
             } else {
-                gl_check!(gl::DrawArrays(gl::TRIANGLES, 0, 3));
+                gl_check!(gl::DrawArrays(self.drawing_mode as u32, 0, 3));
             }
         }
     }
@@ -106,6 +126,14 @@ impl GlOject {
                 gl::STATIC_DRAW,
             ));
         };
+    }
+
+    pub fn set_drawing_mode(&mut self, mode: DrawingMode) {
+        self.drawing_mode = mode;
+    }
+
+    pub fn drawing_mode(&self) -> DrawingMode {
+        self.drawing_mode
     }
 }
 

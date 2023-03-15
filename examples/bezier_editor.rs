@@ -8,6 +8,7 @@ use gaka_rs::geometry::curves::SimpleCurve;
 use gaka_rs::rendering;
 
 use asset_manager::AssetManager;
+use gaka_rs::rendering::opengl::gl_object::DrawingMode;
 use gaka_rs::rendering::opengl::gl_object::GlOject;
 use gaka_rs::rendering::opengl::gl_program::ShaderProgram;
 use gaka_rs::rendering::opengl::gl_program::ShaderType;
@@ -141,8 +142,12 @@ fn main() {
                 curve_program.link().expect("Failed to Link Program");
 
                 let curve_program = Rc::new(curve_program);
-                renderer.add_object(GlOject::new(&curve_vertices, curve_program.clone()));
-                renderer.add_object(GlOject::new(&bezier_vertices, curve_program));
+                let mut bezier_curve = GlOject::new(&curve_vertices, curve_program.clone());
+                bezier_curve.set_drawing_mode(DrawingMode::Lines);
+                let mut ctrl_curve = GlOject::new(&curve_vertices, curve_program.clone());
+                ctrl_curve.set_drawing_mode(DrawingMode::Lines);
+                renderer.add_object(bezier_curve);
+                renderer.add_object(ctrl_curve);
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
