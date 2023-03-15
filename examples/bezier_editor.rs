@@ -51,7 +51,7 @@ fn main() {
     let (event_loop, mut window, gl_config) = {
         let el = EventLoopBuilder::new().build();
         let wb = WindowBuilder::new()
-            .with_title("Demo")
+            .with_title("Bézier Editor Demo")
             .with_transparent(true)
             .with_inner_size(winit::dpi::LogicalSize::new(800.0, 600.0));
 
@@ -197,7 +197,7 @@ fn main() {
                         if let Some((_, _, window)) = &state {
                             bezier.register_point2d(mouse_position);
                             let mut objects = renderer.get_objects();
-                            objects[0].update(Vertices::from_curve(&mut bezier.ctrl_curve()).buffer);
+                            // objects[0].update(Vertices::from_curve(&mut bezier.ctrl_curve()).buffer);
                             objects[1].update(Vertices::from_curve(&mut bezier).buffer);
                             window.request_redraw();
                         }

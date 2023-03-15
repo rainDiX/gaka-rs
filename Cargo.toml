@@ -1,5 +1,5 @@
 [package]
-name = "gaka_demo"
+name = "gaka-rs"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -7,18 +7,24 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = { version = "^0.28" }
-raw-window-handle = "^0.5"
+gl = { version = "*" }
 glutin = { version = "^0.30" }
-glutin-winit = { version = "^0.3" }
-gaka-rs = { path = "../gaka-rs" }
-nalgebra-glm = "0.18.0"
-
 env_logger = "0.10.0"
 log = "0.4.17"
+nalgebra-glm = "0.18.0"
+
+[dev-dependencies]
+winit = { version = "^0.28" }
+glutin-winit = { version = "^0.3" }
+raw-window-handle = "^0.5"
 
 [profile.release]
 opt-level = 3
 lto = 'fat'
 panic = 'abort'
 strip = true
+
+[[example]]
+name = "bezier_editor"
+crate-type = ["bin"]
+
