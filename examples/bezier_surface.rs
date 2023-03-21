@@ -4,14 +4,17 @@
 
 use gaka_rs::asset_manager;
 use gaka_rs::geometry;
-use gaka_rs::geometry::Point;
 use gaka_rs::geometry::curves::SimpleCurve;
+use gaka_rs::geometry::Point;
 
 use asset_manager::AssetManager;
+use gaka_rs::geometry::surfaces::BezierSurface;
 use gaka_rs::rendering::mesh::RenderMesh;
 use gaka_rs::rendering::{Renderer, ShaderProgram, ShaderType};
 use geometry::curves::{Bezier, Curve};
 
+use glm::Vec3;
+use rand::Rng;
 use winit::event::ElementState;
 use winit::event::MouseButton;
 use winit::event::{Event, WindowEvent};
@@ -45,7 +48,7 @@ fn main() {
     let (event_loop, mut window, gl_config) = {
         let el = EventLoopBuilder::new().build();
         let wb = WindowBuilder::new()
-            .with_title("Bézier Editor Demo")
+            .with_title("Bézier Surfaces Demo")
             .with_transparent(true)
             .with_inner_size(winit::dpi::LogicalSize::new(800.0, 600.0));
 
@@ -90,18 +93,29 @@ fn main() {
             .expect("Failed to create the OpenGL context")
     });
 
+    /* Create a random surface */
+    let mut rng = rand::thread_rng();
+    let mut ctrl_grid = [[Point::new(0.0, 0.0, 0.0); 4]; 4];
+    for i in 0..4 {
+        for j in 0..4 {
+            ctrl_grid[i][j] =
+                Point::new(i as f32 / 4.0, j as f32 / 4.0, rng.gen::<f32>() / f32::MAX);
+            // ctrl_grid[i][j] = Point::new(i as f32 / 4.0, j as f32 / 4.0, 0.0);
+        }
+    }
 
-    let mut bezier = Bezier::from([
-        Point::new(0.0, 0.0, 0.0),
-        Point::new(0.0, 0.5, 0.0),
-        Point::new(-0.5, 0.0, 0.0),
-        Point::new(0.0, -0.5, 0.0),
-    ]);
+    let surface = BezierSurface::new(ctrl_grid, 50);
+
+    let mut curves = Vec::new();
+    for i in 0..4 {
+        let mut curve = SimpleCurve::new();
+        curve.register_3d_points(&ctrl_grid[i]);
+        curves.push(curve);
+    }
 
     let mut state = None;
     let mut renderer = Renderer::new(&gl_display);
-    let mut mouse_position = Vec2::new(0.0, 0.0);
-    let mut winddow_size = Vec2::new(800.0, 600.0);
+    let mut window_size = Vec2::new(800.0, 600.0);
 
     event_loop.run(move |event, window_target, control_flow| {
         control_flow.set_wait();
@@ -128,21 +142,24 @@ fn main() {
                     .make_current(&gl_surface)
                     .unwrap();
 
-                let mut curve_program = ShaderProgram::new();
-                curve_program
+                let mut surface_program = ShaderProgram::new();
+                surface_program
                     .compile_file("shaders/mesh.vert", ShaderType::Vertex, &asset_manager)
                     .expect("Fail to compile File");
-                curve_program
+                surface_program
                     .compile_file("shaders/mesh.frag", ShaderType::Fragment, &asset_manager)
                     .expect("Fail to compile File");
-                curve_program.link().expect("Failed to Link Program");
-                let curve_program = Rc::new(curve_program);
+                surface_program.link().expect("Failed to Link Program");
 
-                let ctrl_curve = RenderMesh::from_curve(&bezier.ctrl_curve(), Rc::clone(&curve_program));
-                let bezier_curve = RenderMesh::from_curve(&bezier, Rc::clone(&curve_program));
+                let mesh_program = Rc::new(surface_program);
 
-                renderer.add_object(ctrl_curve);
-                renderer.add_object(bezier_curve);
+                let surface_mesh = RenderMesh::from_surface(&surface, Rc::clone(&mesh_program));
+                renderer.add_object(surface_mesh);
+
+                for curve in &curves {
+                    let curve_mesh = RenderMesh::from_curve(curve, Rc::clone(&mesh_program));
+                    renderer.add_object(curve_mesh);
+                }
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
@@ -175,36 +192,10 @@ fn main() {
                             );
                         }
                         renderer.resize(size.width as i32, size.height as i32);
-                        winddow_size.x = size.width as f32;
-                        winddow_size.y = size.height as f32;
+                        window_size.x = size.width as f32;
+                        window_size.y = size.height as f32;
                     }
                 }
-                WindowEvent::CursorMoved {
-                    device_id: _,
-                    position,
-                    ..
-                } => {
-                    mouse_position.x = 2. * position.x as f32 / winddow_size.x - 1.;
-                    mouse_position.y = -(2. * position.y as f32 / winddow_size.y - 1.);
-                }
-                WindowEvent::MouseInput {
-                    device_id: _,
-                    state: button_state,
-                    button,
-                    ..
-                } => match (button, button_state) {
-                    (MouseButton::Left, ElementState::Pressed) => {
-                        // if let Some((_, _, window)) = &state {
-                        //     bezier.register_2d_point(mouse_position);
-                        //     let mut objects = renderer.get_objects();
-                        //     let ctrl_curve = bezier.ctrl_curve();
-                        //     objects[0].update_vertices(&ctrl_curve.curve(), ctrl_curve.indices());
-                        //     objects[1].update_vertices(bezier.curve(), bezier.indices());
-                        //     window.request_redraw();
-                        // }
-                    }
-                    _ => (),
-                },
                 WindowEvent::CloseRequested => control_flow.set_exit(),
                 _ => (),
             },

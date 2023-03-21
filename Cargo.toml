@@ -17,6 +17,7 @@ nalgebra-glm = "0.18.0"
 winit = { version = "^0.28" }
 glutin-winit = { version = "^0.3" }
 raw-window-handle = "^0.5"
+rand = "*"
 
 [profile.release]
 opt-level = 3
@@ -28,3 +29,6 @@ strip = true
 name = "bezier_editor"
 crate-type = ["bin"]
 
+[[example]]
+name = "bezier_surface"
+crate-type = ["bin"]

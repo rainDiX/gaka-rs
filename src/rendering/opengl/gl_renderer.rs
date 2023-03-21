@@ -2,6 +2,8 @@
 * SPDX-License-Identifier: MIT
 */
 
+use crate::rendering::Drawable;
+use crate::rendering::mesh::RenderMesh;
 // use crate::rendering::vertex::Vertices;
 use crate::{asset_manager::AssetManager, gl_check};
 
@@ -12,10 +14,10 @@ use std::ops::Deref;
 
 // use super::gl_program::{ShaderProgram, ShaderType};
 use super::gl_utils::show_platform_informations;
-use super::gl_object::GlOject;
+use super::gl_objects::GlOject;
 
 pub struct GlRenderer {
-    objects: RefCell<Vec<GlOject>>,
+    objects: RefCell<Vec<RenderMesh>>,
 }
 
 impl GlRenderer {
@@ -37,11 +39,11 @@ impl GlRenderer {
         }
     }
 
-    pub fn add_object(&mut self, object: GlOject) {
+    pub fn add_object(&mut self, object: RenderMesh) {
         self.objects.borrow_mut().push(object);
     }
 
-    pub fn get_objects(&self) -> RefMut<Vec<GlOject>> {
+    pub fn get_objects(&self) -> RefMut<Vec<RenderMesh>> {
         self.objects.borrow_mut()
     }
 

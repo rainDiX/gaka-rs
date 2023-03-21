@@ -14,7 +14,7 @@ use gl::types::{GLenum, GLfloat, GLint, GLuint};
 use glm::{Mat3, Mat4, Vec2, Vec3, Vec4};
 
 #[repr(u32)]
-pub enum ShaderType {
+pub enum GlShaderType {
     Vertex = gl::VERTEX_SHADER,
     Fragment = gl::FRAGMENT_SHADER,
     Geometry = gl::GEOMETRY_SHADER,
@@ -31,12 +31,12 @@ pub enum ProgramError {
     ShaderReadingFailed,
 }
 
-pub struct ShaderProgram {
+pub struct GlShaderProgram {
     id: GLuint,
     linked: bool,
 }
 
-impl ShaderProgram {
+impl GlShaderProgram {
     pub fn new() -> Self {
         let id: GLuint;
         unsafe {
@@ -74,7 +74,7 @@ impl ShaderProgram {
         }
     }
 
-    pub fn get_attribute_location(&self, name: &String) -> GLuint {
+    pub fn get_attribute_location(&self, name: &str) -> GLuint {
         unsafe {
             let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
             gl::GetAttribLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _) as GLuint
@@ -114,7 +114,7 @@ impl ShaderProgram {
     pub fn compile_file(
         &self,
         rel_path: &str,
-        shader_type: ShaderType,
+        shader_type: GlShaderType,
         asset_manager: &AssetManager,
     ) -> Result<(), ProgramError> {
         match asset_manager.read_cstring(rel_path) {
@@ -168,7 +168,7 @@ trait SetUniform<T> {
     fn set_uniform(&mut self, name: &str, value: &T);
 }
 
-impl SetUniform<bool> for ShaderProgram {
+impl SetUniform<bool> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &bool) {
         unsafe {
             gl_check!(gl::Uniform1i(
@@ -179,7 +179,7 @@ impl SetUniform<bool> for ShaderProgram {
     }
 }
 
-impl SetUniform<GLint> for ShaderProgram {
+impl SetUniform<GLint> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &GLint) {
         unsafe {
             gl_check!(gl::Uniform1i(self.get_uniform_location(name), *value));
@@ -187,7 +187,7 @@ impl SetUniform<GLint> for ShaderProgram {
     }
 }
 
-impl SetUniform<GLfloat> for ShaderProgram {
+impl SetUniform<GLfloat> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &GLfloat) {
         unsafe {
             gl_check!(gl::Uniform1f(self.get_uniform_location(name), *value));
@@ -195,7 +195,7 @@ impl SetUniform<GLfloat> for ShaderProgram {
     }
 }
 
-impl SetUniform<Vec2> for ShaderProgram {
+impl SetUniform<Vec2> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &Vec2) {
         unsafe {
             gl_check!(gl::Uniform2f(
@@ -207,7 +207,7 @@ impl SetUniform<Vec2> for ShaderProgram {
     }
 }
 
-impl SetUniform<Vec3> for ShaderProgram {
+impl SetUniform<Vec3> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &Vec3) {
         unsafe {
             gl_check!(gl::Uniform3f(
@@ -220,7 +220,7 @@ impl SetUniform<Vec3> for ShaderProgram {
     }
 }
 
-impl SetUniform<Vec4> for ShaderProgram {
+impl SetUniform<Vec4> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &Vec4) {
         unsafe {
             gl_check!(gl::Uniform4f(
@@ -234,7 +234,7 @@ impl SetUniform<Vec4> for ShaderProgram {
     }
 }
 
-impl SetUniform<Mat3> for ShaderProgram {
+impl SetUniform<Mat3> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &Mat3) {
         unsafe {
             gl_check!(gl::UniformMatrix3fv(
@@ -247,7 +247,7 @@ impl SetUniform<Mat3> for ShaderProgram {
     }
 }
 
-impl SetUniform<Mat4> for ShaderProgram {
+impl SetUniform<Mat4> for GlShaderProgram {
     fn set_uniform(&mut self, name: &str, value: &Mat4) {
         unsafe {
             gl_check!(gl::UniformMatrix4fv(
@@ -261,7 +261,7 @@ impl SetUniform<Mat4> for ShaderProgram {
 }
 
 
-impl Drop for ShaderProgram {
+impl Drop for GlShaderProgram {
     fn drop(&mut self) {
         unsafe {
             gl_check!(gl::DeleteProgram(self.id));
@@ -286,10 +286,3 @@ unsafe fn gl_shader_log(shader: GLuint) {
     gl::GetShaderInfoLog(shader, len, std::ptr::null_mut(), info_log.as_mut_ptr());
     log::error!("{}", gl_info_log_to_string(&mut info_log, len));
 }
-
-// class GLSLProgram
-// {
-//   void validate()  throw(GLSLProgramException);
-
-//   void   bindAttribLocation( GLuint location, const char * name);
-//   void   bindFragDataLocation( GLuint location, const char * name );

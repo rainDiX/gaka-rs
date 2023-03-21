@@ -1,134 +1,174 @@
 /*
 * SPDX-License-Identifier: MIT
 */
-use glm::{Vec2, Vec3};
-use nalgebra_glm as glm;
+
+use super::{de_casteljau, Point, Point2D};
 
 pub trait Curve {
-    fn new() -> Self;
-    fn register_point2d(&mut self, point: Vec2);
-    fn register_point3d(&mut self, point: Vec3);
-    fn curve(&mut self) -> Vec<Vec3>;
+    fn indices(&self) -> &[u32];
+    fn curve(&self) -> &[Point];
 }
 
+#[derive(Clone)]
 pub struct SimpleCurve {
-    points: Vec<Vec3>,
+    points: Vec<Point>,
+    indices: Vec<u32>,
 }
 
 impl Curve for SimpleCurve {
-    fn new() -> Self {
-        Self { points: Vec::new() }
+    fn indices(&self) -> &[u32] {
+        &self.indices
     }
 
-    fn register_point2d(&mut self, point: Vec2) {
-        self.points.push(Vec3::new(point.x, point.y, 0.0));
-    }
-
-    fn register_point3d(&mut self, point: Vec3) {
-        self.points.push(point);
-    }
-
-    fn curve(&mut self) -> Vec<Vec3> {
-        self.points.clone()
+    fn curve(&self) -> &[Point] {
+        &self.points
     }
 }
 
-impl From<Vec<Vec3>> for SimpleCurve {
-    fn from(vertices: Vec<Vec3>) -> Self {
-        SimpleCurve { points: vertices }
-    }
-}
-
-pub struct Bezier {
-    ctrl_points: Vec<Vec3>,
-    curve_points: Vec<Vec3>,
-    eps: f32,
-    constructed: bool,
-}
-
-#[inline]
-fn de_casteljau(t: f32, points: &[Vec3]) -> Vec3 {
-    let mut beta = points.to_vec();
-    let n = points.len();
-
-    for i in 1..n {
-        for j in 0..(n - i) {
-            beta[j] = beta[j] * (1.0 - t) + beta[j + 1] * t;
-        }
-    }
-    beta[0]
-}
-
-impl Curve for Bezier {
-    fn new() -> Self {
+impl SimpleCurve {
+    pub fn new() -> Self {
         Self {
-            ctrl_points: Vec::new(),
-            curve_points: Vec::new(),
-            constructed: true,
-            eps: 0.001,
+            points: Vec::new(),
+            indices: Vec::new(),
         }
     }
 
-    fn register_point2d(&mut self, point: Vec2) {
-        self.ctrl_points.push(Vec3::new(point.x, point.y, 0.0));
-        self.constructed = false;
+    pub fn register_2d_point(&mut self, point: Point2D) {
+        self.points.push(Point::new(point.x, point.y, 0.0));
+        self.update_indices();
     }
 
-    fn register_point3d(&mut self, point: Vec3) {
-        self.ctrl_points.push(point);
-        self.constructed = false;
+    pub fn register_3d_point(&mut self, point: Point) {
+        self.points.push(point);
+        self.update_indices();
     }
 
-    // Calculating the curve points using De Casteljau algorithm
-    fn curve(&mut self) -> Vec<Vec3> {
-        if !self.constructed {
-            self.curve_points.clear();
-            let mut t: f32 = 0.0;
-            let mut i = 0;
-            while i < self.ctrl_points.len() {
-                let j = std::cmp::min(i + 4, self.ctrl_points.len());
-                while t <= 1.0 {
-                    t += self.eps;
-                    self.curve_points
-                        .push(de_casteljau(t, &self.ctrl_points[i..j]));
-                }
-                t = 0.0;
-                i = i + 3;
+    pub fn register_2d_points(&mut self, points: &[Point2D]) {
+        for point in points {
+            self.points.push(Point::new(point.x, point.y, 0.0));
+        }
+        self.update_indices()
+    }
+
+    pub fn register_3d_points(&mut self, points: &[Point]) {
+        for point in points {
+            self.points.push(*point);
+        }
+        self.update_indices();
+    }
+
+    fn update_indices(&mut self) {
+        self.indices = Vec::with_capacity(self.points.len() * 2);
+        for i in 0..(self.points.len() as u32) {
+            self.indices.push(i);
+            if i < self.points.len() as u32 - 1 {
+                self.indices.push(i + 1);
             }
         }
-        self.curve_points.clone()
     }
 }
 
-impl Bezier {
+impl From<&[Point]> for SimpleCurve {
+    fn from(points: &[Point]) -> SimpleCurve {
+        let mut curve = Self {
+            points: points.to_vec(),
+            indices: Vec::new(),
+        };
+        curve.update_indices();
+        curve
+    }
+}
+
+// A Cubic Bezier
+#[derive(Clone)]
+pub struct Bezier<const N: usize> {
+    ctrl_points: [Point; N],
+    curve_points: Vec<Point>,
+    indices: Vec<u32>,
+    nb_points: u32,
+}
+
+impl<const N: usize> Curve for Bezier<N> {
+    fn curve(&self) -> &[Point] {
+        &self.curve_points
+    }
+
+    fn indices(&self) -> &[u32] {
+        &self.indices
+    }
+}
+
+impl<const N: usize> Bezier<N> {
+    pub fn new(begin: Point, end: Point, nb_segments: u32) -> Self {
+        let mut ctrl_points = [Point::new(0.0, 0.0, 0.0); N];
+        for i in 0..N {
+            let d: f32 = i as f32 / (N - 1) as f32;
+            ctrl_points[i] = begin * (1.0 - d) + end * d;
+        }
+        let mut bezier = Self {
+            ctrl_points,
+            curve_points: Vec::new(),
+            indices: Vec::new(),
+            nb_points: 2 * nb_segments,
+        };
+        bezier.evaluate();
+        bezier
+    }
+
     #[inline]
-    pub fn ctrl_points(&self) -> Vec<Vec3> {
-        self.ctrl_points.clone()
+    pub fn ctrl_points(&self) -> &[Point] {
+        &self.ctrl_points
     }
 
     pub fn ctrl_curve(&self) -> SimpleCurve {
-        SimpleCurve {
-            points: self.ctrl_points.clone(),
+        let mut curve = SimpleCurve::new();
+        curve.register_3d_points(self.ctrl_points());
+        curve
+    }
+
+    pub fn set_segments(&mut self, nb_segments: u32) {
+        self.nb_points = 2 * nb_segments;
+    }
+
+    fn evaluate(&mut self) {
+        self.curve_points = Vec::with_capacity(self.nb_points as usize);
+        let mut u: f32 = 0.0;
+        let epsilon = 1.0 / self.nb_points as f32;
+        while u <= 1.0 {
+            self.curve_points.push(de_casteljau(u, &self.ctrl_points));
+            u += epsilon;
         }
+        self.update_indices();
     }
 
-    pub fn set_epsilon(&mut self, eps: f32) {
-        self.eps = eps;
-        self.constructed = false;
-    }
-
-    pub fn epsilon(&self) -> f32 {
-        self.eps
+    fn update_indices(&mut self) {
+        let curve_size = self.curve_points.len();
+        self.indices = Vec::with_capacity(curve_size * 2);
+        for i in 0..(curve_size as u32 - 1) {
+            self.indices.push(i);
+            self.indices.push(i + 1);
+        }
+        self.indices.push(curve_size as u32 - 1);
     }
 }
 
-impl From<Vec<Vec3>> for Bezier {
-    fn from(vertices: Vec<Vec3>) -> Self {
-        Bezier {
-            ctrl_points: vertices,
+impl<const N: usize> From<[Point; N]> for Bezier<N> {
+    fn from(points: [Point; N]) -> Bezier<N> {
+        let mut bezier = Self {
+            ctrl_points: points,
             curve_points: Vec::new(),
-            constructed: false,
-            eps: 0.01,
-        }
+            indices: Vec::new(),
+            nb_points: 100,
+        };
+        bezier.evaluate();
+        bezier
     }
+}
+
+// TODO: PieceWiseBezier
+pub struct PiecewiseBezier {
+    ctrl_points: Vec<Point>,
+    curve_points: Vec<Point>,
+    indices: Vec<u32>,
+    nb_points: u32,
 }
