@@ -3,8 +3,8 @@
 */
 
 mod opengl;
-// pub mod vertex;
-pub mod mesh;
+pub mod camera;
+pub mod scene;
 
 pub type Texture = opengl::gl_texture::GlTexture;
 pub type Renderer = opengl::gl_renderer::GlRenderer;
@@ -12,13 +12,14 @@ pub type ShaderProgram = opengl::gl_program::GlShaderProgram;
 pub type ShaderType = opengl::gl_program::GlShaderType;
 pub type RenderObject = opengl::gl_objects::GlOject;
 
+pub trait SetUniform<T> {
+    fn set_uniform(&self, name: &str, value: &T);
+}
+
 pub struct VertexAttribute {
     pub name: String,
     pub size: i32,
+    pub type_enum: u32,
     pub stride: usize,
     pub offset: usize,
-}
-
-pub trait Drawable {
-    fn draw(&self);
 }

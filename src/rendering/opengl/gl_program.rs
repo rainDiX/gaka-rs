@@ -5,8 +5,13 @@
 use std::ffi::CString;
 
 extern crate gl;
-use super::gl_utils::gl_info_log_to_string;
-use crate::{asset_manager::AssetManager, gl_check};
+use super::components_type_size;
+use super::gl_info_log_to_string;
+use crate::{
+    asset_manager::AssetManager,
+    gl_check,
+    rendering::{SetUniform, VertexAttribute},
+};
 
 use nalgebra_glm as glm;
 
@@ -34,6 +39,7 @@ pub enum ProgramError {
 pub struct GlShaderProgram {
     id: GLuint,
     linked: bool,
+    attributes: Vec<VertexAttribute>,
 }
 
 impl GlShaderProgram {
@@ -42,7 +48,11 @@ impl GlShaderProgram {
         unsafe {
             id = gl::CreateProgram();
         }
-        Self { id, linked: false }
+        Self {
+            id,
+            linked: false,
+            attributes: Vec::new(),
+        }
     }
 
     #[inline]
@@ -69,7 +79,7 @@ impl GlShaderProgram {
 
     fn get_uniform_location(&self, name: &str) -> GLint {
         unsafe {
-            let cname = CString::new(name).expect("Failed to convert name to CString");
+            let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
             gl::GetUniformLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _)
         }
     }
@@ -79,6 +89,10 @@ impl GlShaderProgram {
             let cname = CString::new(name.clone()).expect("Failed to convert name to CString");
             gl::GetAttribLocation(self.id, cname.to_bytes_with_nul().as_ptr() as *const _) as GLuint
         }
+    }
+
+    pub fn get_attributes(&self) -> &[VertexAttribute] {
+        &self.attributes
     }
 
     pub fn compile_source(
@@ -140,6 +154,65 @@ impl GlShaderProgram {
         }
     }
 
+    unsafe fn update_attributes(&mut self) {
+        let mut active_attrs: GLint = 0;
+
+        // Requires OpenGL 4.3+
+        gl::GetProgramInterfaceiv(
+            self.id,
+            gl::PROGRAM_INPUT,
+            gl::ACTIVE_RESOURCES,
+            &mut active_attrs,
+        );
+
+        let properties: Vec<GLenum> = vec![gl::NAME_LENGTH, gl::TYPE];
+        let mut values: Vec<GLint> = Vec::with_capacity(properties.len());
+        values.resize(properties.len(), 0);
+        let mut name_bytes: Vec<u8> = Vec::new();
+
+        let mut offset: usize = 0;
+
+        for attrib in 0..active_attrs as u32 {
+            gl::GetProgramResourceiv(
+                self.id,
+                gl::PROGRAM_INPUT,
+                attrib,
+                properties.len() as i32,
+                properties.as_ptr(),
+                values.len() as i32,
+                std::ptr::null_mut(),
+                values.as_mut_ptr(),
+            );
+
+            name_bytes.resize(values[0] as usize, 0);
+
+            gl::GetProgramResourceName(
+                self.id,
+                gl::PROGRAM_INPUT,
+                attrib,
+                name_bytes.len() as i32,
+                std::ptr::null_mut(),
+                name_bytes.as_mut_ptr() as *mut i8,
+            );
+            let (num, gl_type, size) = components_type_size(values[1] as u32);
+            let cname = CString::from_vec_with_nul(name_bytes.clone()).unwrap();
+            self.attributes.push(VertexAttribute {
+                name: cname
+                    .to_str()
+                    .expect("Fail to convert CString to String")
+                    .to_string(),
+                size: num,
+                stride: 0,
+                offset: offset,
+                type_enum: gl_type,
+            });
+            offset += size;
+        }
+        for attrib in &mut self.attributes {
+            attrib.stride = offset;
+        }
+    }
+
     pub fn link(&mut self) -> Result<(), ProgramError> {
         if self.linked {
             return Ok(());
@@ -157,6 +230,7 @@ impl GlShaderProgram {
                 Err(ProgramError::LinkingFailed)
             } else {
                 self.linked = true;
+                self.update_attributes();
                 self.delete_shaders();
                 Ok(())
             }
@@ -164,12 +238,8 @@ impl GlShaderProgram {
     }
 }
 
-trait SetUniform<T> {
-    fn set_uniform(&mut self, name: &str, value: &T);
-}
-
 impl SetUniform<bool> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &bool) {
+    fn set_uniform(&self, name: &str, value: &bool) {
         unsafe {
             gl_check!(gl::Uniform1i(
                 self.get_uniform_location(name),
@@ -180,7 +250,7 @@ impl SetUniform<bool> for GlShaderProgram {
 }
 
 impl SetUniform<GLint> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &GLint) {
+    fn set_uniform(&self, name: &str, value: &GLint) {
         unsafe {
             gl_check!(gl::Uniform1i(self.get_uniform_location(name), *value));
         }
@@ -188,7 +258,7 @@ impl SetUniform<GLint> for GlShaderProgram {
 }
 
 impl SetUniform<GLfloat> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &GLfloat) {
+    fn set_uniform(&self, name: &str, value: &GLfloat) {
         unsafe {
             gl_check!(gl::Uniform1f(self.get_uniform_location(name), *value));
         }
@@ -196,7 +266,7 @@ impl SetUniform<GLfloat> for GlShaderProgram {
 }
 
 impl SetUniform<Vec2> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &Vec2) {
+    fn set_uniform(&self, name: &str, value: &Vec2) {
         unsafe {
             gl_check!(gl::Uniform2f(
                 self.get_uniform_location(name),
@@ -208,7 +278,7 @@ impl SetUniform<Vec2> for GlShaderProgram {
 }
 
 impl SetUniform<Vec3> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &Vec3) {
+    fn set_uniform(&self, name: &str, value: &Vec3) {
         unsafe {
             gl_check!(gl::Uniform3f(
                 self.get_uniform_location(name),
@@ -221,7 +291,7 @@ impl SetUniform<Vec3> for GlShaderProgram {
 }
 
 impl SetUniform<Vec4> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &Vec4) {
+    fn set_uniform(&self, name: &str, value: &Vec4) {
         unsafe {
             gl_check!(gl::Uniform4f(
                 self.get_uniform_location(name),
@@ -235,7 +305,7 @@ impl SetUniform<Vec4> for GlShaderProgram {
 }
 
 impl SetUniform<Mat3> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &Mat3) {
+    fn set_uniform(&self, name: &str, value: &Mat3) {
         unsafe {
             gl_check!(gl::UniformMatrix3fv(
                 self.get_uniform_location(name),
@@ -248,7 +318,7 @@ impl SetUniform<Mat3> for GlShaderProgram {
 }
 
 impl SetUniform<Mat4> for GlShaderProgram {
-    fn set_uniform(&mut self, name: &str, value: &Mat4) {
+    fn set_uniform(&self, name: &str, value: &Mat4) {
         unsafe {
             gl_check!(gl::UniformMatrix4fv(
                 self.get_uniform_location(name),
@@ -259,7 +329,6 @@ impl SetUniform<Mat4> for GlShaderProgram {
         }
     }
 }
-
 
 impl Drop for GlShaderProgram {
     fn drop(&mut self) {

@@ -5,12 +5,10 @@
 use gaka_rs::asset_manager;
 use gaka_rs::geometry;
 use gaka_rs::geometry::Point;
-use gaka_rs::geometry::curves::SimpleCurve;
 
 use asset_manager::AssetManager;
-use gaka_rs::rendering::mesh::RenderMesh;
-use gaka_rs::rendering::{Renderer, ShaderProgram, ShaderType};
-use geometry::curves::{Bezier, Curve};
+use gaka_rs::rendering::Renderer;
+use geometry::curves::Bezier;
 
 use winit::event::ElementState;
 use winit::event::MouseButton;
@@ -29,7 +27,6 @@ use glutin::surface::SwapInterval;
 use glutin_winit::{self, DisplayBuilder, GlWindow};
 
 use std::num::NonZeroU32;
-use std::rc::Rc;
 
 use nalgebra_glm as glm;
 
@@ -90,8 +87,7 @@ fn main() {
             .expect("Failed to create the OpenGL context")
     });
 
-
-    let mut bezier = Bezier::from([
+    let bezier = Bezier::from([
         Point::new(0.0, 0.0, 0.0),
         Point::new(0.0, 0.5, 0.0),
         Point::new(-0.5, 0.0, 0.0),
@@ -99,7 +95,7 @@ fn main() {
     ]);
 
     let mut state = None;
-    let mut renderer = Renderer::new(&gl_display);
+    let mut renderer = Renderer::new(&gl_display, asset_manager);
     let mut mouse_position = Vec2::new(0.0, 0.0);
     let mut winddow_size = Vec2::new(800.0, 600.0);
 
@@ -128,21 +124,17 @@ fn main() {
                     .make_current(&gl_surface)
                     .unwrap();
 
-                let mut curve_program = ShaderProgram::new();
-                curve_program
-                    .compile_file("shaders/mesh.vert", ShaderType::Vertex, &asset_manager)
-                    .expect("Fail to compile File");
-                curve_program
-                    .compile_file("shaders/mesh.frag", ShaderType::Fragment, &asset_manager)
-                    .expect("Fail to compile File");
-                curve_program.link().expect("Failed to Link Program");
-                let curve_program = Rc::new(curve_program);
+                renderer.compile_shaders();
 
-                let ctrl_curve = RenderMesh::from_curve(&bezier.ctrl_curve(), Rc::clone(&curve_program));
-                let bezier_curve = RenderMesh::from_curve(&bezier, Rc::clone(&curve_program));
+                let curve = bezier.ctrl_curve();
+                let ctrl_curve = renderer.create_object(&(&curve).into());
+                let bezier_curve = renderer.create_object(&(&bezier).into());
 
-                renderer.add_object(ctrl_curve);
-                renderer.add_object(bezier_curve);
+
+                let scene = renderer.get_scene_mut();
+
+                scene.add_object("ctrl_curve", ctrl_curve);
+                scene.add_object("bezier_curve", bezier_curve);
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
@@ -155,7 +147,7 @@ fn main() {
             }
             Event::RedrawRequested(_) => {
                 if let Some((gl_context, gl_surface, _)) = &state {
-                    renderer.draw();
+                    renderer.render_scene();
                     // window.request_redraw();
                     gl_surface.swap_buffers(gl_context).unwrap();
                 }
@@ -196,7 +188,7 @@ fn main() {
                     (MouseButton::Left, ElementState::Pressed) => {
                         // if let Some((_, _, window)) = &state {
                         //     bezier.register_2d_point(mouse_position);
-                        //     let mut objects = renderer.get_objects();
+                        //     let scene = renderer.get_scene_mut();
                         //     let ctrl_curve = bezier.ctrl_curve();
                         //     objects[0].update_vertices(&ctrl_curve.curve(), ctrl_curve.indices());
                         //     objects[1].update_vertices(bezier.curve(), bezier.indices());

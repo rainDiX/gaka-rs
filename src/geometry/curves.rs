@@ -2,7 +2,11 @@
 * SPDX-License-Identifier: MIT
 */
 
-use super::{de_casteljau, Point, Point2D};
+use super::{
+    de_casteljau,
+    mesh::{Mesh, Vertex},
+    Point, Point2D,
+};
 
 pub trait Curve {
     fn indices(&self) -> &[u32];
@@ -165,10 +169,41 @@ impl<const N: usize> From<[Point; N]> for Bezier<N> {
     }
 }
 
-// TODO: PieceWiseBezier
-pub struct PiecewiseBezier {
-    ctrl_points: Vec<Point>,
-    curve_points: Vec<Point>,
-    indices: Vec<u32>,
-    nb_points: u32,
+impl From<&SimpleCurve> for Mesh {
+    fn from(curve: &SimpleCurve) -> Mesh {
+        let indices = curve.indices.clone();
+        let mut vertices = Vec::with_capacity(curve.points.len());
+        for i in 0..curve.points.len() {
+            let vertex = Vertex {
+                position: curve.points[i],
+                normal: Point::new(1.0, 1.0, 1.0),
+                tex_coords: Point2D::new(1.0, 1.0),
+            };
+            vertices.push(vertex);
+        }
+        Mesh { vertices, indices }
+    }
 }
+
+impl<const N: usize> From<&Bezier<N>> for Mesh {
+    fn from(curve: &Bezier<N>) -> Mesh {
+        let indices = curve.indices.clone();
+        let mut vertices = Vec::with_capacity(curve.curve_points.len());
+        for i in 0..curve.curve_points.len() {
+            let vertex = Vertex {
+                position: curve.curve_points[i],
+                normal: Point::new(1.0, 1.0, 1.0),
+                tex_coords: Point2D::new(1.0, 1.0),
+            };
+            vertices.push(vertex);
+        }
+        Mesh { vertices, indices }
+    }
+}
+// TODO: PieceWiseBezier
+// pub struct PiecewiseBezier {
+//     ctrl_points: Vec<Point>,
+//     curve_points: Vec<Point>,
+//     indices: Vec<u32>,
+//     nb_points: u32,
+// }

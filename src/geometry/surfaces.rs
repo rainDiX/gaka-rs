@@ -1,23 +1,22 @@
+/*
+* SPDX-License-Identifier: MIT
+*/
+
 use nalgebra_glm as glm;
 
 use super::{de_casteljau, Point, Point2D};
 
-use super::curves::{Bezier, Curve};
 use super::mesh::{Mesh, Vertex};
 
 pub trait Surface {
-    // fn register_2d_point(&mut self, point: Vec2);
-    // fn register_3d_point(&mut self, point: Point);
-    // fn register_2d_points(&mut self, points: Vec<Vec2>);
-    // fn register_3d_points(&mut self, points: Vec<Point>);
     fn mesh(&self) -> &Mesh;
 }
 
-pub struct SimpleSurface {
-    points: Vec<Point>,
-    width: usize,
-    height: usize,
-}
+// pub struct SimpleSurface {
+//     points: Vec<Point>,
+//     width: usize,
+//     height: usize,
+// }
 
 // impl Surface for SimpleSurface {
 //     fn indices(&self) -> &[u32] {}
@@ -41,7 +40,10 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
     pub fn new(ctrl_grid: [[Point; N]; M], edges: usize) -> Self {
         let mut surface = Self {
             ctrl_grid,
-            mesh: Mesh::new(),
+            mesh: Mesh {
+                vertices: Vec::new(),
+                indices: Vec::new(),
+            },
             mesh_edges: edges,
         };
         surface.evaluate();
@@ -53,19 +55,18 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
     }
 
     fn evaluate(&mut self) {
-        // let mut q_points = Vec::with_capacity(M * self.mesh_edges );
         let mut q_points = vec![Point::new(0.0, 0.0, 0.0); M * self.mesh_edges];
 
         for i in 0..M {
-            for v in 0..self.mesh_edges {
-                let dv = v as f32 / (self.mesh_edges as f32 - 1.0);
-                q_points[v * M + i] = de_casteljau(dv, &self.ctrl_grid[i]);
+            for j in 0..self.mesh_edges {
+                let v = j as f32 / (self.mesh_edges as f32 - 1.0);
+                q_points[j * M + i] = de_casteljau(v, &self.ctrl_grid[i]);
             }
         }
 
         for i in 0..(q_points.len() / M) {
-            for u in 0..self.mesh_edges {
-                let u = u as f32 / (self.mesh_edges as f32 - 1.0);
+            for j in 0..self.mesh_edges {
+                let u = j as f32 / (self.mesh_edges as f32 - 1.0);
 
                 let vertex = Vertex {
                     position: de_casteljau(u, &q_points[i * M..(i + 1) * M]),
@@ -76,6 +77,7 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
             }
         }
         self.calculate_indices();
+        // TODO : calculate normals with bezier derivative
         self.calculate_normals();
     }
 
@@ -102,19 +104,37 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
     }
 
     fn calculate_normals(&mut self) {
-        for i in 0..self.mesh.vertices.len() - 3 {
-            let p0 = &self.mesh.vertices[self.mesh().indices[i] as usize].position;
-            let p1 = &self.mesh.vertices[self.mesh().indices[i + 1] as usize].position;
-            let p2 = &self.mesh.vertices[self.mesh().indices[i + 2] as usize].position;
+        for i in 0..(self.mesh_edges - 1) {
+            for j in 0..(self.mesh_edges - 1) {
+                let p0 = &self.mesh.vertices[i * self.mesh_edges + j].position;
+                let p1 = &self.mesh.vertices[i * self.mesh_edges + j + 1].position;
+                let p2 = &self.mesh.vertices[i * self.mesh_edges + j + self.mesh_edges].position;
+                let p3 =
+                    &self.mesh.vertices[i * self.mesh_edges + j + self.mesh_edges + 1].position;
 
-            let v1 = p1 - p0;
-            let v2 = p2 - p0;
+                let v0 = p2 - p0;
+                let v1 = p1 - p0;
+                let v2 = p3 - p1;
 
-            let normal = glm::normalize(&glm::cross(&v1, &v2));
+                if i == self.mesh_edges - 2 {
+                    let v3 = p3 - p2;
+                    self.mesh.vertices[(i + 1) * self.mesh_edges + j].normal +=
+                        glm::normalize(&glm::cross(&v0, &v3));
 
-            self.mesh.vertices[self.mesh.indices[i] as usize].normal += normal;
-            self.mesh.vertices[self.mesh.indices[i + 1] as usize].normal += normal;
-            self.mesh.vertices[self.mesh.indices[i + 2] as usize].normal += normal;
+                    if i == j {
+                        self.mesh.vertices[(i + 1) * self.mesh_edges + j + 1].normal +=
+                            glm::normalize(&glm::cross(&v2, &v3));
+                    }
+                }
+
+                if j == self.mesh_edges - 2 {
+                    self.mesh.vertices[i * self.mesh_edges + j + 1].normal +=
+                        glm::normalize(&glm::cross(&v2, &v1));
+                }
+
+                self.mesh.vertices[i * self.mesh_edges + j].normal =
+                    glm::normalize(&glm::cross(&v0, &v1));
+            }
         }
     }
 }
