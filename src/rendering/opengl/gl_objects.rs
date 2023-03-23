@@ -12,7 +12,7 @@ use nalgebra_glm as glm;
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy)]
-pub enum DrawingMode {
+pub enum glDrawingMode {
     Points = gl::POINTS,
     Lines = gl::LINES,
     LineLoop = gl::LINE_LOOP,
@@ -31,7 +31,7 @@ pub struct GlOject {
     vbo: GLuint,
     ebo: GLuint,
     index_count: GLint,
-    drawing_mode: DrawingMode,
+    drawing_mode: glDrawingMode,
     textures: Vec<Texture>,
 }
 
@@ -54,7 +54,7 @@ impl GlOject {
             vbo,
             ebo,
             index_count,
-            drawing_mode: DrawingMode::Triangles,
+            drawing_mode: glDrawingMode::Triangles,
             textures,
         }
     }
@@ -97,11 +97,11 @@ impl GlOject {
         };
     }
 
-    pub fn set_drawing_mode(&mut self, mode: DrawingMode) {
+    pub fn set_drawing_mode(&mut self, mode: glDrawingMode) {
         self.drawing_mode = mode;
     }
 
-    pub fn drawing_mode(&self) -> DrawingMode {
+    pub fn drawing_mode(&self) -> glDrawingMode {
         self.drawing_mode
     }
 }

@@ -7,6 +7,7 @@ use gaka_rs::geometry;
 use gaka_rs::geometry::Point;
 
 use asset_manager::AssetManager;
+use gaka_rs::rendering::DrawingMode;
 use gaka_rs::rendering::Renderer;
 use geometry::curves::Bezier;
 
@@ -127,10 +128,12 @@ fn main() {
                 renderer.compile_shaders();
 
                 let curve = bezier.ctrl_curve();
-                let ctrl_curve = renderer.create_object(&(&curve).into());
-                let bezier_curve = renderer.create_object(&(&bezier).into());
+                let mut ctrl_curve = renderer.create_object(&(&curve).into());
+                let mut bezier_curve = renderer.create_object(&(&bezier).into());
 
-
+                ctrl_curve.set_drawing_mode(DrawingMode::Lines);
+                bezier_curve.set_drawing_mode(DrawingMode::Lines);
+            
                 let scene = renderer.get_scene_mut();
 
                 scene.add_object("ctrl_curve", ctrl_curve);

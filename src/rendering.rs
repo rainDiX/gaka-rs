@@ -11,6 +11,7 @@ pub type Renderer = opengl::gl_renderer::GlRenderer;
 pub type ShaderProgram = opengl::gl_program::GlShaderProgram;
 pub type ShaderType = opengl::gl_program::GlShaderType;
 pub type RenderObject = opengl::gl_objects::GlOject;
+pub type DrawingMode = opengl::gl_objects::glDrawingMode;
 
 pub trait SetUniform<T> {
     fn set_uniform(&self, name: &str, value: &T);
