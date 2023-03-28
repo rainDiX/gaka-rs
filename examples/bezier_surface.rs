@@ -3,13 +3,14 @@
 */
 
 use gaka_rs::asset_manager;
-use gaka_rs::geometry::curves::SimpleCurve;
 use gaka_rs::geometry::Point;
 
 use asset_manager::AssetManager;
 use gaka_rs::geometry::surfaces::{BezierSurface, Surface};
 use gaka_rs::rendering::Renderer;
 
+use gaka_rs::rendering::lights::PointLight;
+use gaka_rs::rendering::material::Material;
 use rand::Rng;
 use winit::event::{
     ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
@@ -28,6 +29,7 @@ use glutin::surface::SwapInterval;
 use glutin_winit::{self, DisplayBuilder, GlWindow};
 
 use std::num::NonZeroU32;
+use std::rc::Rc;
 
 use nalgebra_glm as glm;
 
@@ -97,14 +99,15 @@ fn main() {
         }
     }
 
-    let surface = BezierSurface::new(ctrl_grid, 10);
+    let surface = BezierSurface::new(ctrl_grid, 100);
 
-    let mut curves = Vec::new();
-    for i in 0..4 {
-        let mut curve = SimpleCurve::new();
-        curve.register_3d_points(&ctrl_grid[i]);
-        curves.push(curve);
-    }
+    let copper = Rc::new(Material::new(
+        "copper".to_string(),
+        glm::vec3(0.19125, 0.0735, 0.0225),
+        glm::vec3(0.7038, 0.27048, 0.0828),
+        glm::vec3(0.256777, 0.137622, 0.086014),
+        0.1,
+    ));
 
     let mut state = None;
     let mut renderer = Renderer::new(&gl_display, asset_manager);
@@ -138,22 +141,25 @@ fn main() {
 
                 renderer.compile_shaders();
 
-                let surface_mesh = renderer.create_object(surface.mesh());
-
-                let mut curve_meshes = Vec::new();
-
-                for curve in &curves {
-                    curve_meshes.push(renderer.create_object(&curve.into()));
-                }
+                let surface_mesh = renderer.create_object(surface.mesh(), copper.clone());
 
                 let scene = renderer.get_scene_mut();
                 scene.add_object("surface", surface_mesh);
+                scene.add_point_light(
+                    PointLight::new(glm::vec3(1.0, 1.0, 1.0), 1.0, 20.0, 5.0),
+                    glm::vec3(0.0, 10.0, 0.0),
+                );
 
-                let mut counter = 0;
-                for curve in curve_meshes {
-                    scene.add_object(&["curve", &counter.to_string()].join(""), curve);
-                    counter += 1;
-                }
+                scene.add_point_light(
+                    PointLight::new(glm::vec3(1.0, 1.0, 1.0), 1.0, 20.0, 5.0),
+                    glm::vec3(10.0, 0.0, 0.0),
+                );
+
+                scene.add_point_light(
+                    PointLight::new(glm::vec3(1.0, 1.0, 1.0), 1.0, 20.0, 5.0),
+                    glm::vec3(0.0, 0.0, 10.0),
+                );
+
 
                 // Try setting vsync.
                 if let Err(res) = gl_surface
@@ -167,7 +173,6 @@ fn main() {
             Event::RedrawRequested(_) => {
                 if let Some((gl_context, gl_surface, _)) = &state {
                     renderer.render_scene();
-                    // window.request_redraw();
                     gl_surface.swap_buffers(gl_context).unwrap();
                 }
             }

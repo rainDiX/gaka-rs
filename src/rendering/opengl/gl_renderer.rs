@@ -5,12 +5,14 @@
 use crate::asset_manager::AssetManager;
 use crate::geometry::mesh::Mesh;
 use crate::rendering::camera::Camera;
+use crate::rendering::material::Material;
 use crate::rendering::scene::Scene;
 use crate::rendering::{RenderObject, ShaderProgram, ShaderType};
 use crate::gl_check;
 
 use glutin::prelude::GlDisplay;
 use std::ffi::CString;
+use std::rc::Rc;
 
 use super::show_platform_informations;
 use nalgebra_glm as glm;
@@ -53,7 +55,7 @@ impl GlRenderer {
             .expect("Fail to compile File");
         self.programs[0]
             .compile_file(
-                "shaders/mesh.frag",
+                "shaders/phong.frag",
                 ShaderType::Fragment,
                 &self.asset_manager,
             )
@@ -77,6 +79,7 @@ impl GlRenderer {
                 &projection,
                 &camera.get_view_matrix(),
                 &model,
+                self.scene.point_lights(),
                 &self.programs[0],
             );
         }
@@ -97,8 +100,8 @@ impl GlRenderer {
         }
     }
 
-    pub fn create_object(&self, mesh: &Mesh) -> RenderObject {
-        RenderObject::new(mesh, &self.programs[0], Vec::new())
+    pub fn create_object(&self, mesh: &Mesh, material: Rc<Material>) -> RenderObject {
+        RenderObject::new(mesh, &self.programs[0], Vec::new(), material)
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {

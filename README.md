@@ -11,13 +11,13 @@ An OpenGL 4.3+ Renderer written in Rust 🦀
     - [ ] From a given length of line segment
     - [x] Visualization
 - [ ] Bezier surfaces
-    - [ ] Lambertian reflectance
+    - [x] Lambertian reflectance
     - [x] Surface normals visualization
     - [ ] Parameter space
 - [ ] Real-time rendering
     - [ ] BRDF Implementation
     - [ ] Texture support
-    - [ ] Three-point lighting
+    - [x] Three-point lighting
 - [ ] BONUS
     - [ ] Interactive Bezier curve manipulation
     - [ ] Skybox

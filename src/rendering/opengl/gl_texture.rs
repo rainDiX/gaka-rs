@@ -2,9 +2,7 @@
 * SPDX-License-Identifier: MIT
 */
 
-extern crate gl;
-
-use gl::types::{GLuint};
+use gl::types::GLuint;
 
 pub enum GlTextureType {
     Diffuse,

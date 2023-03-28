@@ -4,7 +4,6 @@
 
 use std::ffi::CString;
 
-extern crate gl;
 use super::components_type_size;
 use super::gl_info_log_to_string;
 use crate::{
@@ -116,7 +115,7 @@ impl GlShaderProgram {
             if success == 0 {
                 #[cfg(debug_assertions)]
                 gl_shader_log(shader);
-
+                gl_check!(gl::DeleteShader(shader));
                 Err(ProgramError::ShaderCompilationFailed)
             } else {
                 gl::AttachShader(self.id, shader);
@@ -140,7 +139,7 @@ impl GlShaderProgram {
     unsafe fn delete_shaders(&self) {
         let mut shader_count: GLint = 0;
         gl::GetProgramiv(self.id, gl::ATTACHED_SHADERS, &mut shader_count);
-        let mut shaders: Vec<GLuint> = Vec::with_capacity(shader_count as usize);
+        let mut shaders: Vec<GLuint> = vec![0; shader_count as usize];
 
         gl::GetAttachedShaders(
             self.id,
@@ -150,6 +149,7 @@ impl GlShaderProgram {
         );
 
         for shader in shaders.iter() {
+            gl_check!(gl::DetachShader(self.id, *shader));
             gl_check!(gl::DeleteShader(*shader));
         }
     }
@@ -166,8 +166,7 @@ impl GlShaderProgram {
         );
 
         let properties: Vec<GLenum> = vec![gl::NAME_LENGTH, gl::TYPE];
-        let mut values: Vec<GLint> = Vec::with_capacity(properties.len());
-        values.resize(properties.len(), 0);
+        let mut values: Vec<GLint> = vec![0; properties.len()];
         let mut name_bytes: Vec<u8> = Vec::new();
 
         let mut offset: usize = 0;
@@ -226,6 +225,7 @@ impl GlShaderProgram {
             if success == 0 {
                 #[cfg(debug_assertions)]
                 gl_program_log(self.id);
+                self.delete_shaders();
 
                 Err(ProgramError::LinkingFailed)
             } else {
@@ -239,33 +239,33 @@ impl GlShaderProgram {
 }
 
 impl SetUniform<bool> for GlShaderProgram {
-    fn set_uniform(&self, name: &str, value: &bool) {
+    fn set_uniform(&self, name: &str, value: bool) {
         unsafe {
             gl_check!(gl::Uniform1i(
                 self.get_uniform_location(name),
-                *value as GLint
+                value as GLint
             ));
         }
     }
 }
 
 impl SetUniform<GLint> for GlShaderProgram {
-    fn set_uniform(&self, name: &str, value: &GLint) {
+    fn set_uniform(&self, name: &str, value: GLint) {
         unsafe {
-            gl_check!(gl::Uniform1i(self.get_uniform_location(name), *value));
+            gl_check!(gl::Uniform1i(self.get_uniform_location(name), value));
         }
     }
 }
 
 impl SetUniform<GLfloat> for GlShaderProgram {
-    fn set_uniform(&self, name: &str, value: &GLfloat) {
+    fn set_uniform(&self, name: &str, value: GLfloat) {
         unsafe {
-            gl_check!(gl::Uniform1f(self.get_uniform_location(name), *value));
+            gl_check!(gl::Uniform1f(self.get_uniform_location(name), value));
         }
     }
 }
 
-impl SetUniform<Vec2> for GlShaderProgram {
+impl SetUniform<&Vec2> for GlShaderProgram {
     fn set_uniform(&self, name: &str, value: &Vec2) {
         unsafe {
             gl_check!(gl::Uniform2f(
@@ -277,7 +277,7 @@ impl SetUniform<Vec2> for GlShaderProgram {
     }
 }
 
-impl SetUniform<Vec3> for GlShaderProgram {
+impl SetUniform<&Vec3> for GlShaderProgram {
     fn set_uniform(&self, name: &str, value: &Vec3) {
         unsafe {
             gl_check!(gl::Uniform3f(
@@ -290,7 +290,7 @@ impl SetUniform<Vec3> for GlShaderProgram {
     }
 }
 
-impl SetUniform<Vec4> for GlShaderProgram {
+impl SetUniform<&Vec4> for GlShaderProgram {
     fn set_uniform(&self, name: &str, value: &Vec4) {
         unsafe {
             gl_check!(gl::Uniform4f(
@@ -304,7 +304,7 @@ impl SetUniform<Vec4> for GlShaderProgram {
     }
 }
 
-impl SetUniform<Mat3> for GlShaderProgram {
+impl SetUniform<&Mat3> for GlShaderProgram {
     fn set_uniform(&self, name: &str, value: &Mat3) {
         unsafe {
             gl_check!(gl::UniformMatrix3fv(
@@ -317,7 +317,7 @@ impl SetUniform<Mat3> for GlShaderProgram {
     }
 }
 
-impl SetUniform<Mat4> for GlShaderProgram {
+impl SetUniform<&Mat4> for GlShaderProgram {
     fn set_uniform(&self, name: &str, value: &Mat4) {
         unsafe {
             gl_check!(gl::UniformMatrix4fv(
