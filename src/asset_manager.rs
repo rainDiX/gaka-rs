@@ -59,14 +59,18 @@ impl AssetManager {
         }
     }
 
-    pub fn read_cstring(&self, asset_path: &str) -> Result<ffi::CString, Error> {
+    pub fn read_string(&self, asset_path: &str) -> Result<String, Error> {
         let asset_path = self.root_dir.join(asset_path);
         #[cfg(debug_assertions)]
         log::debug!("Reading {}", asset_path.to_str().unwrap());
         let mut file = fs::File::open(asset_path)?;
         let mut buffer = String::with_capacity(file.metadata()?.len() as usize + 1);
         file.read_to_string(&mut buffer)?;
+        Ok(buffer)
+    }
 
+    pub fn read_cstring(&self, asset_path: &str) -> Result<ffi::CString, Error> {
+        let buffer = self.read_string(asset_path)?;
         ffi::CString::new(buffer).map_err(|_| Error::NulError)
     }
 }
