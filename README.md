@@ -2,6 +2,7 @@
 
 An OpenGL 4.3+ Renderer written in Rust 🦀
 
+![Gaka rendering the Utah teapot in a winit Window](/.readme/utah_teapot.png?raw=true "Gaka rendering the Utah teapot")
 ![Gaka rendering a Bezier surface in a winit Window](/.readme/bezier_surface.png?raw=true "Gaka rendering a Bezier surface")
 
 
