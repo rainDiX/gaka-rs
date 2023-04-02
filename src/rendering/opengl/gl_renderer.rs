@@ -3,14 +3,13 @@
 */
 
 use crate::asset_manager::AssetManager;
-use crate::geometry::mesh::Mesh;
-use crate::rendering::camera::Camera;
-use crate::rendering::material::Material;
-use crate::rendering::scene::Scene;
-use crate::rendering::{RenderObject, ShaderProgram, ShaderType};
 use crate::gl_check;
+use crate::rendering::camera::Camera;
+use crate::rendering::scene::Scene;
+use crate::rendering::{ShaderProgram, ShaderType};
 
 use glutin::prelude::GlDisplay;
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::rc::Rc;
 
@@ -19,7 +18,7 @@ use nalgebra_glm as glm;
 
 pub struct GlRenderer {
     scene: Scene,
-    programs: Vec<ShaderProgram>,
+    programs: HashMap<String, Rc<ShaderProgram>>,
     asset_manager: AssetManager,
     aspect_ratio: f32,
 }
@@ -40,7 +39,7 @@ impl GlRenderer {
 
             Self {
                 scene: Scene::new(),
-                programs: Vec::new(),
+                programs: HashMap::new(),
                 asset_manager,
                 aspect_ratio: 1.0,
             }
@@ -49,18 +48,34 @@ impl GlRenderer {
 
     // temporary
     pub fn compile_shaders(&mut self) {
-        self.programs.push(ShaderProgram::new());
-        self.programs[0]
+        let mut normal = ShaderProgram::new();
+        normal
             .compile_file("shaders/mesh.vert", ShaderType::Vertex, &self.asset_manager)
             .expect("Fail to compile File");
-        self.programs[0]
+        normal
+            .compile_file(
+                "shaders/normals.frag",
+                ShaderType::Fragment,
+                &self.asset_manager,
+            )
+            .expect("Fail to compile File");
+        normal.link().expect("Failed to Link Program");
+
+        let mut phong = ShaderProgram::new();
+        phong
+            .compile_file("shaders/mesh.vert", ShaderType::Vertex, &self.asset_manager)
+            .expect("Fail to compile File");
+        phong
             .compile_file(
                 "shaders/phong.frag",
                 ShaderType::Fragment,
                 &self.asset_manager,
             )
             .expect("Fail to compile File");
-        self.programs[0].link().expect("Failed to Link Program");
+        phong.link().expect("Failed to Link Program");
+
+        self.programs.insert("normal".to_owned(), Rc::new(normal));
+        self.programs.insert("phong".to_owned(), Rc::new(phong));
     }
 
     pub fn render_scene(&self) {
@@ -69,7 +84,8 @@ impl GlRenderer {
             gl_check!(gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT));
         }
         let camera = self.scene.camera();
-        let projection = glm::perspective(camera.fov().to_radians(), self.aspect_ratio, 0.5, 1000.0);
+        let projection =
+            glm::perspective(camera.fov().to_radians(), self.aspect_ratio, 0.5, 1000.0);
         let model = glm::identity::<f32, 4>();
         // TODO for now the modelMatrix is just the identity
         // model = glm::rotate(&model, angle.to_radians(), glm::vec3(1.0, 0.3, 0.5));
@@ -80,7 +96,6 @@ impl GlRenderer {
                 &camera.get_view_matrix(),
                 &model,
                 self.scene.point_lights(),
-                &self.programs[0],
             );
         }
     }
@@ -93,15 +108,15 @@ impl GlRenderer {
         &mut self.scene
     }
 
+    pub fn get_program(&self, handle: &str) -> Option<&Rc<ShaderProgram>> {
+        self.programs.get(handle)
+    }
+
     pub fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32) {
         self.aspect_ratio = width as f32 / height as f32;
         unsafe {
             gl_check!(gl::Viewport(x, y, width, height));
         }
-    }
-
-    pub fn create_object(&self, mesh: &Mesh, material: Rc<Material>) -> RenderObject {
-        RenderObject::new(mesh, &self.programs[0], Vec::new(), material)
     }
 
     pub fn resize(&mut self, width: i32, height: i32) {

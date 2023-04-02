@@ -7,7 +7,7 @@ use gaka_rs::geometry::Point;
 
 use asset_manager::AssetManager;
 use gaka_rs::geometry::surfaces::{BezierSurface, Surface};
-use gaka_rs::rendering::Renderer;
+use gaka_rs::rendering::{Renderer, RenderObject};
 
 use gaka_rs::rendering::lights::PointLight;
 use gaka_rs::rendering::material::Material;
@@ -99,7 +99,7 @@ fn main() {
         }
     }
 
-    let surface = BezierSurface::new(ctrl_grid, 100);
+    let surface = BezierSurface::new(ctrl_grid, 10);
 
     let copper = Rc::new(Material::new(
         "copper".to_string(),
@@ -141,7 +141,9 @@ fn main() {
 
                 renderer.compile_shaders();
 
-                let surface_mesh = renderer.create_object(surface.mesh(), copper.clone());
+
+                let phong = renderer.get_program("phong").unwrap();
+                let surface_mesh = RenderObject::new(surface.mesh(), phong.clone(), Vec::new(), copper.clone()); 
 
                 let scene = renderer.get_scene_mut();
                 scene.add_object("surface", surface_mesh);

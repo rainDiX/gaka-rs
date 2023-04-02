@@ -135,9 +135,13 @@ fn main() {
 
                 renderer.compile_shaders();
 
+                let phong = renderer.get_program("phong").unwrap();
+
                 let meshes: Vec<RenderObject> = teapot_surfaces
                     .iter()
-                    .map(|surface| renderer.create_object(surface.mesh(), copper.clone()))
+                    .map(|surface| {
+                        RenderObject::new(surface.mesh(), phong.clone(), Vec::new(), copper.clone())
+                    })
                     .collect();
 
                 let scene = renderer.get_scene_mut();

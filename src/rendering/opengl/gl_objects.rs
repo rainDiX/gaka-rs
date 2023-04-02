@@ -9,7 +9,7 @@ use gl::types::{GLenum, GLint, GLsizei, GLsizeiptr, GLuint};
 use crate::{
     geometry::mesh::Mesh,
     gl_check,
-    rendering::{material::Material, SetUniform, Texture, VertexAttribute, lights::{PointLight, self}},
+    rendering::{lights::PointLight, material::Material, SetUniform, Texture, VertexAttribute},
 };
 
 use super::gl_program::GlShaderProgram;
@@ -39,6 +39,7 @@ pub struct GlOject {
     index_count: GLint,
     vertex_buffer_size: usize,
     drawing_mode: GlDrawingMode,
+    program: Rc<GlShaderProgram>,
     material: Rc<Material>,
     textures: Vec<Texture>,
 }
@@ -46,7 +47,7 @@ pub struct GlOject {
 impl GlOject {
     pub fn new(
         mesh: &Mesh,
-        program: &GlShaderProgram,
+        program: Rc<GlShaderProgram>,
         textures: Vec<Texture>,
         material: Rc<Material>,
     ) -> Self {
@@ -65,6 +66,7 @@ impl GlOject {
             index_count,
             vertex_buffer_size: mesh.vertices.len(),
             drawing_mode: GlDrawingMode::Triangles,
+            program,
             material,
             textures,
         }
@@ -84,29 +86,40 @@ impl GlOject {
         view_matrix: &glm::Mat4,
         model_matrix: &glm::Mat4,
         lights: &Vec<(PointLight, glm::Vec3)>,
-        program: &GlShaderProgram,
     ) {
         unsafe {
             self.bind();
-            program.activate().expect("Fail to use program");
+            self.program.activate().expect("Fail to use program");
 
-            program.set_uniform("projection", projection_matrix);
-            program.set_uniform("view", view_matrix);
-            program.set_uniform("model", model_matrix);
+            self.program.set_uniform("projection", projection_matrix);
+            self.program.set_uniform("view", view_matrix);
+            self.program.set_uniform("model", model_matrix);
 
-            program.set_uniform("material.ambient", &self.material.ambient);
-            program.set_uniform("material.diffuse", &self.material.diffuse);
-            program.set_uniform("material.specular", &self.material.specular);
-            program.set_uniform("material.shininess", self.material.shininess);
+            self.program
+                .set_uniform("material.ambient", &self.material.ambient);
+            self.program
+                .set_uniform("material.diffuse", &self.material.diffuse);
+            self.program
+                .set_uniform("material.specular", &self.material.specular);
+            self.program
+                .set_uniform("material.shininess", self.material.shininess);
 
-            // gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
-            program.set_uniform("nb_point_lights", lights.len() as GLint);
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+            self.program
+                .set_uniform("nb_point_lights", lights.len() as GLint);
             for i in 0..lights.len() {
-                program.set_uniform(&format!("pointLights[{}].color", i), &lights[i].0.color);
-                program.set_uniform(&format!("pointLights[{}].intensity", i), lights[i].0.intensity);
-                program.set_uniform(&format!("pointLights[{}].range", i), lights[i].0.range);
-                program.set_uniform(&format!("pointLights[{}].decay", i), lights[i].0.decay);
-                program.set_uniform(&format!("pointLights[{}].position", i), &lights[i].1);
+                self.program
+                    .set_uniform(&format!("pointLights[{}].color", i), &lights[i].0.color);
+                self.program.set_uniform(
+                    &format!("pointLights[{}].intensity", i),
+                    lights[i].0.intensity,
+                );
+                self.program
+                    .set_uniform(&format!("pointLights[{}].range", i), lights[i].0.range);
+                self.program
+                    .set_uniform(&format!("pointLights[{}].decay", i), lights[i].0.decay);
+                self.program
+                    .set_uniform(&format!("pointLights[{}].position", i), &lights[i].1);
             }
 
             gl_check!(gl::DrawElements(
