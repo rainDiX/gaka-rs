@@ -2,7 +2,10 @@
 * SPDX-License-Identifier: MIT
 */
 
-mod opengl;
+pub mod vulkan;
+
+
+/*
 pub mod lights;
 pub mod camera;
 pub mod scene;
@@ -26,3 +29,4 @@ pub struct VertexAttribute {
     pub stride: usize,
     pub offset: usize,
 }
+*/

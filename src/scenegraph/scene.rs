@@ -9,6 +9,7 @@ use super::{camera::FlyingCamera, lights::PointLight};
 use crate::rendering::RenderObject;
 
 pub struct Scene {
+    root: Node,
     camera: FlyingCamera,
     objects: HashMap<String, RenderObject>,
     point_lights: Vec<(PointLight, glm::Vec3)>,

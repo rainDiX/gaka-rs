@@ -1,38 +1,38 @@
 [package]
-name = "gaka-rs"
+name = "opal"
 version = "0.1.0"
 edition = "2021"
+authors = ["Romain Dijoux"]
+description = "Opal is a 3D renderer"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gl = { version = "*" }
-glutin = { version = "^0.30" }
-env_logger = "0.10.0"
-log = "0.4.17"
-nalgebra-glm = "0.18.0"
-
-[dev-dependencies]
-winit = { version = "^0.28" }
-glutin-winit = { version = "^0.3" }
-raw-window-handle = "^0.5"
+winit = "^0.30"
+raw-window-handle = "^0.6"
+nalgebra-glm = "^0.19"
+image = "^0.25"
+env_logger = "^0.11"
+log = "^0.4"
 rand = "*"
+
+# Vulkan
+ash = { version = "*", optional = true}
+ash-window = { version = "*", optional = true}
+
+# WebGPU
+wgpu = { version = "*", optional = true}
+
+
+[features]
+default = ["vulkan"]
+vulkan = ["dep:ash", "dep:ash-window"] # WIP
+webgpu = ["dep:wgpu"] # currently not implemented
 
 [profile.release]
 opt-level = 3
-lto = 'fat'
+lto = 'thin'
+codegen-units = 1
 panic = 'abort'
-strip = true
-
-[[example]]
-name = "bezier_editor"
-crate-type = ["bin"]
-
-[[example]]
-name = "bezier_surface"
-crate-type = ["bin"]
-
-[[example]]
-name = "teapot"
-crate-type = ["bin"]
+strip = "debuginfo"
