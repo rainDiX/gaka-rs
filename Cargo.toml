@@ -18,11 +18,11 @@ log = "^0.4"
 rand = "*"
 
 # Vulkan
-ash = { version = "*", optional = true}
-ash-window = { version = "*", optional = true}
+ash = { version = "^0.38", optional = true}
+ash-window = { version = "^0.13", optional = true}
 
 # WebGPU
-wgpu = { version = "*", optional = true}
+wgpu = { version = "^0.20", optional = true}
 
 
 [features]
