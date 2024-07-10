@@ -2,32 +2,33 @@ use std::{ffi::NulError, fmt};
 
 use ash::vk;
 
-pub enum ContextInitError {
+pub enum VulkanError {
     SystemError,
     VulkanError(vk::Result),
+    DeviceSelectionError,
     StringError,
 }
 
-impl From<NulError> for ContextInitError {
+impl From<NulError> for VulkanError {
     fn from(_: NulError) -> Self {
-        ContextInitError::StringError
+        VulkanError::StringError
     }
 }
 
-impl From<ash::LoadingError> for ContextInitError {
+impl From<ash::LoadingError> for VulkanError {
     fn from(value: ash::LoadingError) -> Self {
         println!("{}", value);
-        ContextInitError::SystemError
+        VulkanError::SystemError
     }
 }
 
-impl From<vk::Result> for ContextInitError {
+impl From<vk::Result> for VulkanError {
     fn from(e: vk::Result) -> Self {
-        ContextInitError::VulkanError(e)
+        VulkanError::VulkanError(e)
     }
 }
 
-impl fmt::Display for ContextInitError {
+impl fmt::Display for VulkanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::SystemError => {
@@ -37,7 +38,10 @@ impl fmt::Display for ContextInitError {
                 "There was an error converting a string to a null terminated CString",
                 f,
             ),
-            Self::VulkanError(e) => fmt::Display::fmt(e, f),
+            Self::DeviceSelectionError => fmt::Display::fmt(
+                "Selected device not available",
+                f),
+            Self::VulkanError(e) => fmt::Display::fmt(e, f)
         }
     }
 }

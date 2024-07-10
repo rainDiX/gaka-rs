@@ -9,13 +9,11 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = "^0.30"
 raw-window-handle = "^0.6"
 nalgebra-glm = "^0.19"
 image = "^0.25"
 env_logger = "^0.11"
 log = "^0.4"
-rand = "*"
 
 # Vulkan
 ash = { version = "^0.38", optional = true}
@@ -24,11 +22,16 @@ ash-window = { version = "^0.13", optional = true}
 # WebGPU
 wgpu = { version = "^0.20", optional = true}
 
+winit = { version = "^0.30", optional = true}
+
+[dev-dependencies]
+rand = "^0.8"
 
 [features]
-default = ["vulkan"]
+default = ["vulkan", "winit"]
 vulkan = ["dep:ash", "dep:ash-window"] # WIP
 webgpu = ["dep:wgpu"] # currently not implemented
+winit = ["dep:winit"]
 
 [profile.release]
 opt-level = 3
@@ -36,3 +39,8 @@ lto = 'thin'
 codegen-units = 1
 panic = 'abort'
 strip = "debuginfo"
+
+
+[[example]]
+name = "triangle"
+crate-type = ["bin"]

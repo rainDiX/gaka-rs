@@ -1,5 +1,6 @@
 use std::ffi;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::ptr;
 
 use ash::ext;
@@ -20,17 +21,28 @@ extern "system" fn vulkan_debug_callback(
         _ => "Unknown",
     };
 
-    if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::ERROR {
-        log::error!("({}) {}", message_type, message);
-    } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::WARNING {
-        log::warn!("({}) {}", message_type, message);
-    } else if severity >= vk::DebugUtilsMessageSeverityFlagsEXT::INFO {
-        log::debug!("({}) {}", message_type, message);
-    } else {
-        log::trace!("({}) {}", message_type, message);
+    match severity {
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => {
+            log::error!("({}) {}", message_type, message)
+        }
+        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => {
+            log::warn!("({}) {}", message_type, message)
+        }
+        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => {
+            log::debug!("({}) {}", message_type, message)
+        }
+        _ => log::trace!("({}) {}", message_type, message),
     }
 
     vk::FALSE
+}
+
+pub(crate) unsafe fn raw_to_string(raw_string_array: &[ffi::c_char]) -> String {
+    let raw_str = CStr::from_ptr(raw_string_array.as_ptr());
+    raw_str
+        .to_str()
+        .unwrap_or("Failed decode string")
+        .to_owned()
 }
 
 pub(crate) unsafe fn layer_in_layer_properties(
@@ -73,14 +85,19 @@ pub(crate) fn create_debug_messenger(
 }
 
 pub(crate) fn is_physical_device_suitable(
-        instance: &ash::Instance,
-        physical_device: &vk::PhysicalDevice,
-    ) -> bool {
-
-        let device_queue_families =
-            unsafe { instance.get_physical_device_queue_family_properties(*physical_device) };
-
-        device_queue_families.iter().any(
-            | queue_family | queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
-        )
-    }
+    instance: &ash::Instance,
+    physical_device: &vk::PhysicalDevice,
+    required_ext: &[CString],
+) -> bool {
+    let extensions = unsafe {
+        instance
+            .enumerate_device_extension_properties(*physical_device)
+            .unwrap_or_default()
+            .iter()
+            .map(|ext| CStr::from_ptr(ext.extension_name.as_ptr()).to_owned())
+            .collect::<Vec<CString>>()
+    };
+    extensions
+        .iter()
+        .all(|ext| required_ext.contains(ext))
+}
