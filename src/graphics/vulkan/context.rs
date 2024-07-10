@@ -75,6 +75,7 @@ pub struct VulkanContext {
     surface_fn: khr::surface::Instance,
     surface: vk::SurfaceKHR,
 
+    extensions: Vec<CString>,
     dbg_instance: Option<ext::debug_utils::Instance>,
     debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
 }
@@ -146,21 +147,9 @@ impl VulkanContext {
             extension_names.push(c"VK_KHR_swapchain".to_owned());
         };
 
-        let layer_names_raw: Vec<*const ffi::c_char> = layer_names
-            .iter()
-            .map(|raw_name| raw_name.as_ptr())
-            .collect();
+        let layer_names_raw = utils::string_slice_to_raw_slice(&layer_names);
 
-        let extension_names_raw = {
-            let mut names_raw: Vec<*const ffi::c_char> = extension_names
-                .iter()
-                .map(|raw_name| raw_name.as_ptr())
-                .collect();
-            surface_extensions
-                .iter()
-                .for_each(|ext| names_raw.push(*ext));
-            names_raw
-        };
+        let extension_names_raw = utils::string_slice_to_raw_slice(&extension_names);
 
         let create_info = vk::InstanceCreateInfo::default()
             .application_info(&appinfo)
@@ -209,6 +198,7 @@ impl VulkanContext {
                 surface_fn: surface_fn,
                 surface: surface,
 
+                extensions: extension_names,
                 dbg_instance: Some(dbg_instance),
                 debug_messenger: Some(dbg_messenger),
             });
@@ -222,6 +212,7 @@ impl VulkanContext {
                 surface_fn: surface_fn,
                 surface: surface,
 
+                extensions: extension_names,
                 dbg_instance: Some(dbg_instance),
                 debug_messenger: Some(dbg_messenger),
             });
@@ -266,7 +257,16 @@ impl VulkanContext {
         let graphics_device = self.physical_devices.get(index);
 
         match graphics_device {
-            Some(dev) => device::Device::new(&self.instance, &dev.phy),
+            Some(dev) => match (dev.graphics_family_index, dev.present_family_index) {
+                (Some(graphics_family_index), Some(present_family_index)) => device::Device::new(
+                    &self.instance,
+                    &dev.phy,
+                    graphics_family_index,
+                    present_family_index,
+                    &self.extensions
+                ),
+                _ => Err(errors::VulkanError::DeviceSelectionError),
+            },
             None => Err(errors::VulkanError::DeviceSelectionError),
         }
     }

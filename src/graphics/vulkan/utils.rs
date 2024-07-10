@@ -1,3 +1,7 @@
+/*
+* SPDX-License-Identifier: MIT
+*/
+
 use std::ffi;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -43,6 +47,13 @@ pub(crate) unsafe fn raw_to_string(raw_string_array: &[ffi::c_char]) -> String {
         .to_str()
         .unwrap_or("Failed decode string")
         .to_owned()
+}
+
+pub(crate) fn string_slice_to_raw_slice(vector: &[CString]) -> Vec<*const ffi::c_char> {
+    vector
+        .iter()
+        .map(|raw_string| raw_string.as_ptr())
+        .collect()
 }
 
 pub(crate) unsafe fn layer_in_layer_properties(
@@ -97,7 +108,5 @@ pub(crate) fn is_physical_device_suitable(
             .map(|ext| CStr::from_ptr(ext.extension_name.as_ptr()).to_owned())
             .collect::<Vec<CString>>()
     };
-    extensions
-        .iter()
-        .all(|ext| required_ext.contains(ext))
+    extensions.iter().all(|ext| required_ext.contains(ext))
 }

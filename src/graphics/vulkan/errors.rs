@@ -1,3 +1,7 @@
+/*
+* SPDX-License-Identifier: MIT
+*/
+
 use std::{ffi::NulError, fmt};
 
 use ash::vk;
