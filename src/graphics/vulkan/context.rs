@@ -76,6 +76,7 @@ pub struct VulkanContext {
     surface: vk::SurfaceKHR,
 
     extensions: Vec<CString>,
+    device_extensions: Vec<CString>,
     dbg_instance: Option<ext::debug_utils::Instance>,
     debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
 }
@@ -116,10 +117,15 @@ impl VulkanContext {
 
         let mut layer_names = Vec::new();
 
-        let surface_extensions = ash_window::enumerate_required_extensions(*display_handle)?;
+        let surface_extensions;
 
         let mut extension_names;
         unsafe {
+            surface_extensions = ash_window::enumerate_required_extensions(*display_handle)?
+                .iter()
+                .map(|s| ffi::CStr::from_ptr(*s).to_owned())
+                .collect::<Vec<CString>>();
+
             let available_layers = entry.enumerate_instance_layer_properties()?;
 
             if layers.is_some() {
@@ -133,10 +139,7 @@ impl VulkanContext {
             #[cfg(debug_assertions)]
             layer_names.push(c"VK_LAYER_KHRONOS_validation".to_owned());
 
-            extension_names = surface_extensions
-                .iter()
-                .map(|s| ffi::CStr::from_ptr(*s).to_owned())
-                .collect::<Vec<CString>>();
+            extension_names = surface_extensions.clone();
 
             if extensions.is_some() {
                 extensions
@@ -144,7 +147,9 @@ impl VulkanContext {
                     .iter()
                     .for_each(|l| extension_names.push(CString::new(*l).unwrap_or_default()));
             }
-            extension_names.push(c"VK_KHR_swapchain".to_owned());
+
+            #[cfg(debug_assertions)]
+            extension_names.push(ash::ext::debug_utils::NAME.to_owned());
         };
 
         let layer_names_raw = utils::string_slice_to_raw_slice(&layer_names);
@@ -175,6 +180,8 @@ impl VulkanContext {
             #[cfg(debug_assertions)]
             let (dbg_instance, dbg_messenger) = utils::create_debug_messenger(&entry, &instance)?;
 
+            let device_extensions = vec![ash::khr::swapchain::NAME.to_owned()];
+            //device_extensions.push();
             let devices = instance
                 .enumerate_physical_devices()?
                 .iter()
@@ -184,7 +191,7 @@ impl VulkanContext {
                         *phy,
                         &surface,
                         &surface_fn,
-                        &extension_names,
+                        &device_extensions,
                     )
                 })
                 .collect::<Vec<VulkanPhysicalDevice>>();
@@ -199,6 +206,8 @@ impl VulkanContext {
                 surface: surface,
 
                 extensions: extension_names,
+                device_extensions: device_extensions,
+
                 dbg_instance: Some(dbg_instance),
                 debug_messenger: Some(dbg_messenger),
             });
@@ -213,8 +222,10 @@ impl VulkanContext {
                 surface: surface,
 
                 extensions: extension_names,
-                dbg_instance: Some(dbg_instance),
-                debug_messenger: Some(dbg_messenger),
+                device_extensions: device_extensions,
+
+                dbg_instance: None,
+                debug_messenger: None,
             });
         }
     }
@@ -263,7 +274,7 @@ impl VulkanContext {
                     &dev.phy,
                     graphics_family_index,
                     present_family_index,
-                    &self.extensions
+                    &self.device_extensions,
                 ),
                 _ => Err(errors::VulkanError::DeviceSelectionError),
             },

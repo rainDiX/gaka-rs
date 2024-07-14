@@ -7,8 +7,8 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug bezier_editor",
-            "program": "${workspaceFolder}/target/debug/examples/bezier_editor",
+            "name": "Debug triangle",
+            "program": "${workspaceFolder}/target/debug/examples/triangle",
             "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "rust: cargo build",

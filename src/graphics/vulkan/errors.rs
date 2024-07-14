@@ -49,3 +49,14 @@ impl fmt::Display for VulkanError {
         }
     }
 }
+
+impl fmt::Debug for VulkanError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SystemError => write!(f, "SystemError"),
+            Self::VulkanError(arg0) => f.debug_tuple("VulkanError").field(arg0).finish(),
+            Self::DeviceSelectionError => write!(f, "DeviceSelectionError"),
+            Self::StringError => write!(f, "There was an error converting a string to a null terminated CString"),
+        }
+    }
+}

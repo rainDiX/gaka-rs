@@ -52,19 +52,22 @@ impl Device {
         );
 
         // TODO customize queue creation
-        let queue_priority = [1.0f32];
+        let queue_priorities = [1.0_f32];
 
         let mut queue_create_infos = Vec::new();
         let mut queue_create_info = vk::DeviceQueueCreateInfo::default();
         queue_create_info = queue_create_info.queue_family_index(graphics_family_index);
-        queue_create_info.queue_count = 1;
-        queue_create_info = queue_create_info.queue_priorities(&queue_priority);
+        queue_create_info.queue_count = queue_priorities.len() as u32;
+        queue_create_info = queue_create_info.queue_priorities(&queue_priorities);
         queue_create_infos.push(queue_create_info);
 
         let mut dev_create_info = vk::DeviceCreateInfo::default();
         dev_create_info = dev_create_info.queue_create_infos(&queue_create_infos);
+        dev_create_info.queue_create_info_count = queue_create_infos.len() as u32;
+
         let extensions_raw = utils::string_slice_to_raw_slice(extensions);
         dev_create_info = dev_create_info.enabled_extension_names(&extensions_raw);
+        dev_create_info.enabled_extension_count = extensions.len() as u32;
 
         let logical_device = unsafe {
             instance.create_device(*physical_device, &dev_create_info, None)?
