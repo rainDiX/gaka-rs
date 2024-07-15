@@ -132,7 +132,7 @@ impl VulkanDevice {
         &self.logical_device
     }
 
-    pub fn create_swapchain(&self, width: u32, height: u32) -> swapchain::VulkanSwapChain {
+    pub fn create_swapchain(self: &Rc<Self>, width: u32, height: u32) -> swapchain::VulkanSwapChain {
         let (image_sharing_mode, queue_family_indices) =
             if self.graphics_family_index != self.present_family_index {
                 (
@@ -145,14 +145,15 @@ impl VulkanDevice {
 
         let ctx = self.context.upgrade().expect("Failed to uprgrade reference to vulkan context");
         swapchain::VulkanSwapChain::new(
-            ctx,
-            &self,
+            &ctx,
+            self,
             width,
             height,
             image_sharing_mode,
             &queue_family_indices,
         )
     }
+
 }
 
 impl Drop for VulkanDevice {

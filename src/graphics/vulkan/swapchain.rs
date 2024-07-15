@@ -2,24 +2,28 @@
 * SPDX-License-Identifier: MIT
 */
 
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use ash::{khr, vk};
+
+use crate::graphics::vulkan::utils;
 
 use super::{context, device};
 
 pub struct VulkanSwapChain {
+    device: Weak<device::VulkanDevice>,
     swapchain_device: khr::swapchain::Device,
     swapchain: vk::SwapchainKHR,
     swapchain_images: Vec<vk::Image>,
     swapchain_format: vk::Format,
     swapchain_extent: vk::Extent2D,
+    swapchain_imageviews: Vec<vk::ImageView>,
 }
 
 impl VulkanSwapChain {
     pub fn new(
-        context: Rc<context::VulkanContext>,
-        device: &device::VulkanDevice,
+        context: &Rc<context::VulkanContext>,
+        device: &Rc<device::VulkanDevice>,
         width: u32,
         height: u32,
         image_sharing_mode: vk::SharingMode,
@@ -37,6 +41,8 @@ impl VulkanSwapChain {
             image_count
         };
 
+        let composite_alpha = swapchain_support.choose_composite_alpha();
+
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::default()
             .flags(vk::SwapchainCreateFlagsKHR::empty())
             .surface(*context.surface())
@@ -48,7 +54,7 @@ impl VulkanSwapChain {
             .image_sharing_mode(image_sharing_mode)
             .queue_family_indices(&queue_family_indices)
             .pre_transform(swapchain_support.capabilities.current_transform)
-            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            .composite_alpha(composite_alpha)
             .present_mode(present_mode)
             .clipped(true)
             .old_swapchain(vk::SwapchainKHR::null())
@@ -70,12 +76,20 @@ impl VulkanSwapChain {
                 .expect("Failed to get Swapchain Images.")
         };
 
+        let swapchain_imageviews = utils::create_image_views(
+            surface_format.format,
+            device.logical_device(),
+            &swapchain_images,
+        );
+
         Self {
+            device: Rc::downgrade(device),
             swapchain_device,
             swapchain,
             swapchain_format: surface_format.format,
             swapchain_extent: extent,
             swapchain_images,
+            swapchain_imageviews,
         }
     }
 }
@@ -83,7 +97,15 @@ impl VulkanSwapChain {
 impl Drop for VulkanSwapChain {
     fn drop(&mut self) {
         unsafe {
-            self.swapchain_device.destroy_swapchain(self.swapchain, None);
+            for imageview in self.swapchain_imageviews.iter() {
+                self.device
+                    .upgrade()
+                    .expect("Failed to upgrade ref to device")
+                    .logical_device()
+                    .destroy_image_view(*imageview, None);
+            }
+            self.swapchain_device
+                .destroy_swapchain(self.swapchain, None);
         }
     }
 }
@@ -128,6 +150,30 @@ impl SwapChainSupportDetail {
                     .max(self.capabilities.min_image_extent.height)
                     .min(self.capabilities.max_image_extent.height),
             }
+        }
+    }
+
+    fn choose_composite_alpha(&self) -> vk::CompositeAlphaFlagsKHR {
+        if self
+            .capabilities
+            .supported_composite_alpha
+            .contains(vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED)
+        {
+            vk::CompositeAlphaFlagsKHR::PRE_MULTIPLIED
+        } else if self
+            .capabilities
+            .supported_composite_alpha
+            .contains(vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED)
+        {
+            vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED
+        } else if self
+            .capabilities
+            .supported_composite_alpha
+            .contains(vk::CompositeAlphaFlagsKHR::INHERIT)
+        {
+            vk::CompositeAlphaFlagsKHR::INHERIT
+        } else {
+            vk::CompositeAlphaFlagsKHR::OPAQUE
         }
     }
 }

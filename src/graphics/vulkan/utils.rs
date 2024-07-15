@@ -108,6 +108,45 @@ pub(crate) fn is_physical_device_suitable(
             .map(|ext| CStr::from_ptr(ext.extension_name.as_ptr()).to_owned())
             .collect::<Vec<CString>>()
     };
-    let req = required_ext.iter().all(| required | extensions.contains(required));
+    let req = required_ext
+        .iter()
+        .all(|required| extensions.contains(required));
     return req;
+}
+
+pub(crate) fn create_image_views(
+    image_format: vk::Format,
+    device: &ash::Device,
+    images: &Vec<vk::Image>,
+) -> Vec<vk::ImageView> {
+    let mut swapchain_imageviews = vec![];
+
+    for &image in images.iter() {
+        let imageview_create_info = vk::ImageViewCreateInfo::default()
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(image_format)
+            .components(vk::ComponentMapping {
+                r: vk::ComponentSwizzle::IDENTITY,
+                g: vk::ComponentSwizzle::IDENTITY,
+                b: vk::ComponentSwizzle::IDENTITY,
+                a: vk::ComponentSwizzle::IDENTITY,
+            })
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .image(image);
+
+        let imageview = unsafe {
+            device
+                .create_image_view(&imageview_create_info, None)
+                .expect("Failed to create Image View!")
+        };
+        swapchain_imageviews.push(imageview);
+    }
+
+    swapchain_imageviews
 }

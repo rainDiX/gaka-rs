@@ -292,9 +292,9 @@ impl ApplicationHandler for Application {
                 .expect("Failed to create vulkan Context"),
             );
 
-            let device = context
+            let device = Rc::new(context
                 .create_graphic_device_default()
-                .expect("Failed to create device");
+                .expect("Failed to create device"));
 
             let swapchain = device.create_swapchain(800, 600);
 
