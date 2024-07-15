@@ -2,9 +2,9 @@
 * SPDX-License-Identifier: MIT
 */
 
-use std::mem;
+use std::{mem, rc::Rc};
 
-use opal::graphics::vulkan::{context::{VulkanContext, VulkanPhysicalDevice}, device};
+use opal::graphics::vulkan::context::VulkanContext;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     application::ApplicationHandler,
@@ -25,7 +25,7 @@ struct Application {
     cursor_hidden: bool,
 
     window: Option<Window>,
-    context: Option<VulkanContext>,
+    context: Option<Rc<VulkanContext>>,
 }
 
 impl Application {
@@ -280,19 +280,23 @@ impl ApplicationHandler for Application {
                 .create_window(window_attribs)
                 .expect("Failed to create window");
 
-            let mut context = VulkanContext::new(
-                "Triangle",
-                0,
-                &window.display_handle().unwrap().as_raw(),
-                &window.window_handle().unwrap().as_raw(),
-                None,
-                None,
-            )
-            .expect("Failed to create vulkan Context");
+            let mut context = Rc::new(
+                VulkanContext::new(
+                    "Triangle",
+                    0,
+                    &window.display_handle().unwrap().as_raw(),
+                    &window.window_handle().unwrap().as_raw(),
+                    None,
+                    None,
+                )
+                .expect("Failed to create vulkan Context"),
+            );
 
             let device = context
                 .create_graphic_device_default()
                 .expect("Failed to create device");
+
+            let swapchain = device.create_swapchain(800, 600);
 
             self.window = Some(window);
             self.context = Some(context);
@@ -301,6 +305,7 @@ impl ApplicationHandler for Application {
 }
 
 fn main() {
+    env_logger::init();
     let mut app = Application::new();
     let event_loop = EventLoop::new().unwrap();
     event_loop.run_app(&mut app).expect("Failed to run app");

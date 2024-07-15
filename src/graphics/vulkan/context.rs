@@ -8,6 +8,7 @@ use super::utils;
 use crate::constants;
 
 use std::ffi::{self, CString};
+use std::rc::Rc;
 
 use ash::{ext, khr, vk};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
@@ -68,15 +69,15 @@ impl VulkanPhysicalDevice {
 }
 
 pub struct VulkanContext {
-    pub entry: ash::Entry,
-    pub physical_devices: Vec<VulkanPhysicalDevice>,
+    entry: ash::Entry,
+    physical_devices: Vec<VulkanPhysicalDevice>,
 
     instance: ash::Instance,
     surface_fn: khr::surface::Instance,
     surface: vk::SurfaceKHR,
 
-    extensions: Vec<CString>,
-    device_extensions: Vec<CString>,
+    pub extensions: Vec<CString>,
+    pub device_extensions: Vec<CString>,
     dbg_instance: Option<ext::debug_utils::Instance>,
     debug_messenger: Option<vk::DebugUtilsMessengerEXT>,
 }
@@ -96,7 +97,7 @@ impl VulkanContext {
         window_handle: &RawWindowHandle,
         extensions: Option<&[&str]>,
         layers: Option<&[&str]>,
-    ) -> Result<VulkanContext, errors::VulkanError> {
+    ) -> Result<Self, errors::VulkanError> {
         let app_name = CString::new(app)?;
         let engine_name = CString::new(constants::ENGINE_NAME)?;
 
@@ -230,7 +231,9 @@ impl VulkanContext {
         }
     }
 
-    pub fn create_graphic_device_default(&mut self) -> Result<device::Device, errors::VulkanError> {
+    pub fn create_graphic_device_default(
+        self: &Rc<Self>,
+    ) -> Result<device::VulkanDevice, errors::VulkanError> {
         let mut selected_device = None;
         let mut selected_device_type = vk::PhysicalDeviceType::OTHER;
 
@@ -262,24 +265,41 @@ impl VulkanContext {
     }
 
     pub fn create_graphic_device(
-        &self,
+        self: &Rc<Self>,
         index: usize,
-    ) -> Result<device::Device, errors::VulkanError> {
+    ) -> Result<device::VulkanDevice, errors::VulkanError> {
         let graphics_device = self.physical_devices.get(index);
 
         match graphics_device {
             Some(dev) => match (dev.graphics_family_index, dev.present_family_index) {
-                (Some(graphics_family_index), Some(present_family_index)) => device::Device::new(
-                    &self.instance,
-                    &dev.phy,
-                    graphics_family_index,
-                    present_family_index,
-                    &self.device_extensions,
-                ),
+                (Some(graphics_family_index), Some(present_family_index)) =>
+                    device::VulkanDevice::new(
+                        self,
+                        dev.phy,
+                        graphics_family_index,
+                        present_family_index,
+                        &self.device_extensions,
+                    ),
                 _ => Err(errors::VulkanError::DeviceSelectionError),
             },
             None => Err(errors::VulkanError::DeviceSelectionError),
         }
+    }
+
+    pub fn entry(&self) -> &ash::Entry {
+        &self.entry
+    }
+
+    pub fn instance(&self) -> &ash::Instance {
+        &self.instance
+    }
+
+    pub fn surface_fn(&self) -> &khr::surface::Instance {
+        &self.surface_fn
+    }
+
+    pub fn surface(&self) -> &vk::SurfaceKHR {
+        &self.surface
     }
 }
 

@@ -3,28 +3,38 @@
 */
 
 use std::ffi;
+use std::rc::Rc;
+use std::rc::Weak;
 
 use ash::vk;
 
+use super::context;
 use super::errors;
+use super::swapchain;
 use super::utils;
 
-pub struct Device {
+pub struct VulkanDevice {
+    context: Weak<context::VulkanContext>,
+    physical_device: vk::PhysicalDevice,
     logical_device: ash::Device,
     graphics_queue: vk::Queue,
     present_queue: vk::Queue,
+    graphics_family_index: u32,
+    present_family_index: u32,
 }
 
-impl Device {
+impl VulkanDevice {
     pub fn new(
-        instance: &ash::Instance,
-        physical_device: &vk::PhysicalDevice,
+        ctx: &Rc<context::VulkanContext>,
+        physical_device: vk::PhysicalDevice,
         graphics_family_index: u32,
         present_family_index: u32,
         extensions: &[ffi::CString],
     ) -> Result<Self, errors::VulkanError> {
-        let device_properties =
-            unsafe { instance.get_physical_device_properties(*physical_device) };
+        let device_properties = unsafe {
+            ctx.instance()
+                .get_physical_device_properties(physical_device)
+        };
         //let device_features = unsafe { instance.get_physical_device_features(*physical_device) };
 
         let device_type = match device_properties.device_type {
@@ -70,16 +80,83 @@ impl Device {
         dev_create_info.enabled_extension_count = extensions.len() as u32;
 
         let logical_device = unsafe {
-            instance.create_device(*physical_device, &dev_create_info, None)?
+            ctx.instance()
+                .create_device(physical_device, &dev_create_info, None)?
         };
 
         let graphics_queue = unsafe { logical_device.get_device_queue(graphics_family_index, 0) };
         let present_queue = unsafe { logical_device.get_device_queue(present_family_index, 0) };
 
-        Ok(Device {
+        Ok(VulkanDevice {
+            context: Rc::downgrade(ctx),
+            physical_device,
             logical_device,
             graphics_queue,
             present_queue,
+            graphics_family_index,
+            present_family_index,
         })
+    }
+
+    pub(crate) fn query_swapchain_support(&self) -> swapchain::SwapChainSupportDetail {
+        let ctx = self.context.upgrade().expect("Failed to uprgrade reference to vulkan context");
+        unsafe {
+            let capabilities = ctx
+                .surface_fn()
+                .get_physical_device_surface_capabilities(
+                    self.physical_device,
+                    *ctx.surface(),
+                )
+                .expect("Failed to query for surface capabilities.");
+            let formats = ctx
+                .surface_fn()
+                .get_physical_device_surface_formats(self.physical_device, *ctx.surface())
+                .expect("Failed to query for surface formats.");
+            let present_modes = ctx
+                .surface_fn()
+                .get_physical_device_surface_present_modes(
+                    self.physical_device,
+                    *ctx.surface(),
+                )
+                .expect("Failed to query for surface present mode.");
+
+            swapchain::SwapChainSupportDetail {
+                capabilities,
+                formats,
+                present_modes,
+            }
+        }
+    }
+
+    pub fn logical_device(&self) -> &ash::Device {
+        &self.logical_device
+    }
+
+    pub fn create_swapchain(&self, width: u32, height: u32) -> swapchain::VulkanSwapChain {
+        let (image_sharing_mode, queue_family_indices) =
+            if self.graphics_family_index != self.present_family_index {
+                (
+                    vk::SharingMode::CONCURRENT,
+                    vec![self.graphics_family_index, self.present_family_index],
+                )
+            } else {
+                (vk::SharingMode::EXCLUSIVE, vec![])
+            };
+
+        let ctx = self.context.upgrade().expect("Failed to uprgrade reference to vulkan context");
+        swapchain::VulkanSwapChain::new(
+            ctx,
+            &self,
+            width,
+            height,
+            image_sharing_mode,
+            &queue_family_indices,
+        )
+    }
+}
+
+impl Drop for VulkanDevice {
+    fn drop(&mut self) {
+        unsafe { self.logical_device.destroy_device(None) };
     }
 }
