@@ -4,40 +4,17 @@
 
 use nalgebra_glm as glm;
 
-use super::{de_casteljau, Point, Point2D};
+use super::{algorithms::de_casteljau, Vec3, Vec2};
 
-use super::mesh::{Mesh, Vertex};
-
-pub trait Surface {
-    fn mesh(&self) -> &Mesh;
-}
-
-// pub struct SimpleSurface {
-//     points: Vec<Point>,
-//     width: usize,
-//     height: usize,
-// }
-
-// impl Surface for SimpleSurface {
-//     fn indices(&self) -> &[u32] {}
-//     fn normals(&self) -> &[Point] {}
-//     fn surface(&self) -> &[Point] {}
-// }
-
+use super::primitives::{Mesh, Vertex};
 pub struct BezierSurface<const M: usize, const N: usize> {
-    ctrl_grid: [[Point; N]; M],
+    ctrl_grid: [[Vec3; N]; M],
     mesh: Mesh,
     mesh_edges: usize,
 }
 
-impl<const M: usize, const N: usize> Surface for BezierSurface<M, N> {
-    fn mesh(&self) -> &Mesh {
-        &self.mesh
-    }
-}
-
 impl<const M: usize, const N: usize> BezierSurface<M, N> {
-    pub fn new(ctrl_grid: [[Point; N]; M], edges: usize) -> Self {
+    pub fn new(ctrl_grid: [[Vec3; N]; M], edges: usize) -> Self {
         let mut surface = Self {
             ctrl_grid,
             mesh: Mesh {
@@ -55,7 +32,7 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
     }
 
     fn evaluate(&mut self) {
-        let mut q_points = vec![Point::new(0.0, 0.0, 0.0); M * self.mesh_edges];
+        let mut q_points = vec![Vec3::new(0.0, 0.0, 0.0); M * self.mesh_edges];
 
         for i in 0..M {
             for j in 0..self.mesh_edges {
@@ -70,8 +47,8 @@ impl<const M: usize, const N: usize> BezierSurface<M, N> {
 
                 let vertex = Vertex {
                     position: de_casteljau(u, &q_points[i * M..(i + 1) * M]),
-                    normal: Point::new(0.0, 0.0, 0.0),
-                    tex_coords: Point2D::new(1.0, 1.0),
+                    normal: Vec3::new(0.0, 0.0, 0.0),
+                    uv: Vec2::new(1.0, 1.0),
                 };
                 self.mesh.vertices.push(vertex);
             }
