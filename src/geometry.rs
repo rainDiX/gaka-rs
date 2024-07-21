@@ -7,5 +7,4 @@ pub mod primitives;
 pub mod surfaces;
 pub mod algorithms;
 
-use nalgebra_glm as glm;
 use nalgebra_glm::{Vec2, Vec3};

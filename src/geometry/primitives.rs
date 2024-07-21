@@ -5,9 +5,23 @@
 use super::Vec2;
 use super::Vec3;
 
+#[repr(C)]
 pub struct Line {
     pub start: Vec3,
     pub end: Vec3,
+}
+
+#[repr(C)]
+pub struct SimpleVertex {
+    pub position: Vec3,
+    pub normal: Vec3,
+}
+
+#[repr(C)]
+pub struct Vertex {
+    pub position: Vec3,
+    pub normal: Vec3,
+    pub uv: Vec2,
 }
 
 pub struct PolyLine {
@@ -23,18 +37,6 @@ impl PolyLine {
         false
     }
 }
-
-pub struct SimpleVertex {
-    pub position: Vec3,
-    pub normal: Vec3,
-}
-
-pub struct Vertex {
-    pub position: Vec3,
-    pub normal: Vec3,
-    pub uv: Vec2,
-}
-
 pub struct SimpleMesh {
     pub vertices: Vec<Vertex>,
 }
