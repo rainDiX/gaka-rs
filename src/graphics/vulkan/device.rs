@@ -4,11 +4,11 @@
 
 use std::ffi;
 use std::rc::Rc;
-use std::rc::Weak;
 
 use ash::vk;
 
 use super::context;
+use super::context::VulkanContext;
 use super::errors;
 use super::errors::VulkanError;
 use super::graphics_pipeline::VulkanGraphicsPipeline;
@@ -17,7 +17,7 @@ use super::swapchain::VulkanSwapChain;
 use super::utils;
 
 pub struct VulkanDevice {
-    context: Weak<context::VulkanContext>,
+    context: Rc<context::VulkanContext>,
     phy: vk::PhysicalDevice,
     device: ash::Device,
     graphics_queue: vk::Queue,
@@ -28,14 +28,14 @@ pub struct VulkanDevice {
 
 impl VulkanDevice {
     pub fn new(
-        ctx: &Rc<context::VulkanContext>,
+        context: Rc<context::VulkanContext>,
         physical_device: vk::PhysicalDevice,
         graphics_family_index: u32,
         present_family_index: u32,
         extensions: &[ffi::CString],
     ) -> Result<Self, errors::VulkanError> {
         let device_properties = unsafe {
-            ctx.instance()
+            context.instance()
                 .get_physical_device_properties(physical_device)
         };
         //let device_features = unsafe { instance.get_physical_device_features(*physical_device) };
@@ -83,7 +83,7 @@ impl VulkanDevice {
         dev_create_info.enabled_extension_count = extensions.len() as u32;
 
         let logical_device = unsafe {
-            ctx.instance()
+            context.instance()
                 .create_device(physical_device, &dev_create_info, None)?
         };
 
@@ -91,7 +91,7 @@ impl VulkanDevice {
         let present_queue = unsafe { logical_device.get_device_queue(present_family_index, 0) };
 
         Ok(VulkanDevice {
-            context: Rc::downgrade(ctx),
+            context: context.clone(),
             phy: physical_device,
             device: logical_device,
             graphics_queue,
@@ -101,23 +101,23 @@ impl VulkanDevice {
         })
     }
 
+    pub fn context(&self) -> Rc<VulkanContext> {
+        self.context.clone()
+    }
+
     pub(crate) fn query_swapchain_support(&self) -> swapchain::SwapChainSupportDetail {
-        let ctx = self
-            .context
-            .upgrade()
-            .expect("Failed to uprgrade reference to vulkan context");
         unsafe {
-            let capabilities = ctx
+            let capabilities = self.context
                 .surface_fn()
-                .get_physical_device_surface_capabilities(self.phy, *ctx.surface())
+                .get_physical_device_surface_capabilities(self.phy, *self.context.surface())
                 .expect("Failed to query for surface capabilities.");
-            let formats = ctx
+            let formats = self.context
                 .surface_fn()
-                .get_physical_device_surface_formats(self.phy, *ctx.surface())
+                .get_physical_device_surface_formats(self.phy, *self.context.surface())
                 .expect("Failed to query for surface formats.");
-            let present_modes = ctx
+            let present_modes = self.context
                 .surface_fn()
-                .get_physical_device_surface_present_modes(self.phy, *ctx.surface())
+                .get_physical_device_surface_present_modes(self.phy, *self.context.surface())
                 .expect("Failed to query for surface present mode.");
 
             swapchain::SwapChainSupportDetail {
@@ -147,13 +147,8 @@ impl VulkanDevice {
                 (vk::SharingMode::EXCLUSIVE, vec![])
             };
 
-        let ctx = self
-            .context
-            .upgrade()
-            .expect("Failed to uprgrade reference to vulkan context");
         swapchain::VulkanSwapChain::new(
-            &ctx,
-            self,
+            self.clone(),
             width,
             height,
             image_sharing_mode,

@@ -2,28 +2,28 @@
 * SPDX-License-Identifier: MIT
 */
 
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use ash::{khr, vk};
 
 use crate::graphics::vulkan::utils;
 
-use super::{context, device};
+use super::{device, errors::VulkanError, graphics_pipeline::VulkanGraphicsPipeline};
 
 pub struct VulkanSwapChain {
-    device: Weak<device::VulkanDevice>,
+    device: Rc<device::VulkanDevice>,
     swapchain_device: khr::swapchain::Device,
     swapchain: vk::SwapchainKHR,
     images: Vec<vk::Image>,
     pub format: vk::Format,
     pub extent: vk::Extent2D,
     imageviews: Vec<vk::ImageView>,
+    framebuffers: Vec<vk::Framebuffer>,
 }
 
 impl VulkanSwapChain {
     pub fn new(
-        context: &Rc<context::VulkanContext>,
-        device: &Rc<device::VulkanDevice>,
+        device: Rc<device::VulkanDevice>,
         width: u32,
         height: u32,
         image_sharing_mode: vk::SharingMode,
@@ -45,7 +45,7 @@ impl VulkanSwapChain {
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::default()
             .flags(vk::SwapchainCreateFlagsKHR::empty())
-            .surface(*context.surface())
+            .surface(*device.context().surface())
             .min_image_count(image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
@@ -63,7 +63,7 @@ impl VulkanSwapChain {
         log::info!("Creating SwapChain");
 
         let swapchain_device =
-            khr::swapchain::Device::new(context.instance(), device.logical_device());
+            khr::swapchain::Device::new(device.context().instance(), device.logical_device());
         let swapchain = unsafe {
             swapchain_device
                 .create_swapchain(&swapchain_create_info, None)
@@ -83,25 +83,54 @@ impl VulkanSwapChain {
         );
 
         Self {
-            device: Rc::downgrade(device),
+            device: device,
             swapchain_device,
             swapchain,
             format: surface_format.format,
             extent,
             images: swapchain_images,
             imageviews: swapchain_imageviews,
+            framebuffers: Vec::new(),
         }
     }
 
+    pub fn create_framebuffers(
+        &mut self,
+        pipeline: VulkanGraphicsPipeline,
+    ) -> Result<(), VulkanError> {
+        self.framebuffers.reserve(self.imageviews.len());
+
+        for image_view in self.imageviews.iter() {
+            let attachments = [*image_view];
+            let framebuffer_info = vk::FramebufferCreateInfo::default()
+                .render_pass(pipeline.render_pass)
+                .attachments(&attachments)
+                .width(self.extent.width)
+                .height(self.extent.height)
+                .layers(1);
+
+            unsafe {
+                self.framebuffers.push(
+                    self.device
+                        .logical_device()
+                        .create_framebuffer(&framebuffer_info, None)?,
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Drop for VulkanSwapChain {
     fn drop(&mut self) {
         unsafe {
+            for framebuffer in self.framebuffers.iter() {
+                self.device
+                    .logical_device()
+                    .destroy_framebuffer(*framebuffer, None);
+            }
             for imageview in self.imageviews.iter() {
                 self.device
-                    .upgrade()
-                    .expect("Failed to upgrade ref to device")
                     .logical_device()
                     .destroy_image_view(*imageview, None);
             }

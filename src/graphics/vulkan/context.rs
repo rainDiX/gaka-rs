@@ -274,7 +274,7 @@ impl VulkanContext {
             Some(dev) => match (dev.graphics_family_index, dev.present_family_index) {
                 (Some(graphics_family_index), Some(present_family_index)) =>
                     device::VulkanDevice::new(
-                        self,
+                        self.clone(),
                         dev.phy,
                         graphics_family_index,
                         present_family_index,
