@@ -17,6 +17,7 @@ log = "^0.4"
 
 # Vulkan
 ash = { version = "^0.38", optional = true}
+vk-mem = { version = "^0.4", optional = true}
 ash-window = { version = "^0.13", optional = true}
 
 # WebGPU
@@ -32,7 +33,7 @@ shaderc = "^0.8"
 
 [features]
 default = ["vulkan", "winit"]
-vulkan = ["dep:ash", "dep:ash-window"] # WIP
+vulkan = ["dep:ash", "dep:ash-window", "dep:vk-mem"] # WIP
 webgpu = ["dep:wgpu"] # currently not implemented
 winit = ["dep:winit"]
 

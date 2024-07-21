@@ -150,3 +150,26 @@ pub(crate) fn create_image_views(
 
     swapchain_imageviews
 }
+
+pub(crate) fn create_specialization_entries(
+    specialization_map: &[(u32, u32)],
+) -> (Vec<vk::SpecializationMapEntry>, Vec<u8>) {
+    let mut entries = Vec::new();
+    let mut buffer = Vec::<u8>::new();
+    let mut offset = 0;
+    let size = std::mem::size_of::<u32>();
+    for (id, value) in specialization_map.iter() {
+        entries.push(
+            vk::SpecializationMapEntry::default()
+                .constant_id(*id)
+                .size(size)
+                .offset(offset),
+        );
+        unsafe {
+            let bytes = std::mem::transmute::<u32, [u8; 4]>(*value);
+            buffer.extend_from_slice(&bytes);
+        }
+        offset += 1;
+    }
+    (entries, buffer)
+}

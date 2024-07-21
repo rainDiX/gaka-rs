@@ -14,10 +14,10 @@ pub struct VulkanSwapChain {
     device: Weak<device::VulkanDevice>,
     swapchain_device: khr::swapchain::Device,
     swapchain: vk::SwapchainKHR,
-    swapchain_images: Vec<vk::Image>,
-    swapchain_format: vk::Format,
-    swapchain_extent: vk::Extent2D,
-    swapchain_imageviews: Vec<vk::ImageView>,
+    images: Vec<vk::Image>,
+    pub format: vk::Format,
+    pub extent: vk::Extent2D,
+    imageviews: Vec<vk::ImageView>,
 }
 
 impl VulkanSwapChain {
@@ -86,18 +86,19 @@ impl VulkanSwapChain {
             device: Rc::downgrade(device),
             swapchain_device,
             swapchain,
-            swapchain_format: surface_format.format,
-            swapchain_extent: extent,
-            swapchain_images,
-            swapchain_imageviews,
+            format: surface_format.format,
+            extent,
+            images: swapchain_images,
+            imageviews: swapchain_imageviews,
         }
     }
+
 }
 
 impl Drop for VulkanSwapChain {
     fn drop(&mut self) {
         unsafe {
-            for imageview in self.swapchain_imageviews.iter() {
+            for imageview in self.imageviews.iter() {
                 self.device
                     .upgrade()
                     .expect("Failed to upgrade ref to device")
