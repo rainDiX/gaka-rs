@@ -55,7 +55,7 @@ impl<const N: usize> PiecewiseBezier<N> {
             ctrl_points[i] = begin * (1.0 - d) + end * d;
         }
         Self {
-            ctrl_points: ctrl_points,
+            ctrl_points,
         }
     }
 

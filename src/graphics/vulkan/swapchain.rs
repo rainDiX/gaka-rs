@@ -83,7 +83,7 @@ impl VulkanSwapChain {
         );
 
         Self {
-            device: device,
+            device,
             swapchain_device,
             swapchain,
             format: surface_format.format,
@@ -152,11 +152,11 @@ impl SwapChainSupportDetail {
             if available_format.format == vk::Format::B8G8R8A8_SRGB
                 && available_format.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR
             {
-                return available_format.clone();
+                return *available_format;
             }
         }
         // return the first format from the list
-        return self.formats.first().unwrap().clone();
+        return *self.formats.first().unwrap();
     }
 
     fn choose_swapchain_present_mode(&self) -> vk::PresentModeKHR {
@@ -169,7 +169,7 @@ impl SwapChainSupportDetail {
     }
 
     fn choose_swapchain_extent(&self, width: u32, height: u32) -> vk::Extent2D {
-        if self.capabilities.current_extent.width != u32::max_value() {
+        if self.capabilities.current_extent.width != u32::MAX {
             self.capabilities.current_extent
         } else {
             vk::Extent2D {

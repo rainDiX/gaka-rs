@@ -32,34 +32,32 @@ impl VulkanPhysicalDevice {
         let mut present_queue_index = None;
         let queue_families = unsafe { instance.get_physical_device_queue_family_properties(phy) };
 
-        let mut index = 0;
-        for queue_family in queue_families.iter() {
+        for (index, queue_family) in queue_families.iter().enumerate() {
             if queue_family.queue_count > 0
                 && queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
             {
-                graphics_queue_index = Some(index);
+                graphics_queue_index = Some(index as u32);
             };
 
             let present_support = unsafe {
                 surface_fn
-                    .get_physical_device_surface_support(phy, index, *surface)
+                    .get_physical_device_surface_support(phy, index.try_into().unwrap(), *surface)
                     .unwrap_or(false)
             };
             if queue_family.queue_count > 0 && present_support {
-                present_queue_index = Some(index);
+                present_queue_index = Some(index as u32);
             }
 
             if graphics_queue_index.is_some() && present_queue_index.is_some() {
                 break;
             }
-            index += 1;
         }
 
         VulkanPhysicalDevice {
             phy,
             graphics_family_index: graphics_queue_index,
             present_family_index: present_queue_index,
-            suitable: utils::is_physical_device_suitable(&instance, &phy, &required_ext),
+            suitable: utils::is_physical_device_suitable(instance, &phy, required_ext),
         }
     }
 
@@ -106,7 +104,7 @@ impl VulkanContext {
         let appinfo = vk::ApplicationInfo::default()
             .application_name(app_name.as_c_str())
             .application_version(version)
-            .engine_name(&engine_name.as_c_str())
+            .engine_name(engine_name.as_c_str())
             .engine_version(constants::ENGINE_VERSION)
             .api_version(vk::make_api_version(0, 1, 0, 0));
 
@@ -129,9 +127,9 @@ impl VulkanContext {
 
             let available_layers = entry.enumerate_instance_layer_properties()?;
 
-            if layers.is_some() {
-                layers.unwrap().iter().for_each(|l| {
-                    if utils::layer_in_layer_properties(&available_layers, *l) {
+            if let Some(layers) = layers {
+                layers.iter().for_each(|l| {
+                    if utils::layer_in_layer_properties(&available_layers, l) {
                         layer_names.push(CString::new(*l).unwrap_or_default())
                     }
                 });
@@ -142,9 +140,8 @@ impl VulkanContext {
 
             extension_names = surface_extensions.clone();
 
-            if extensions.is_some() {
-                extensions
-                    .unwrap()
+            if let Some(exts) = extensions {
+                exts
                     .iter()
                     .for_each(|l| extension_names.push(CString::new(*l).unwrap_or_default()));
             }
@@ -199,15 +196,15 @@ impl VulkanContext {
 
             #[cfg(debug_assertions)]
             return Ok(Self {
-                entry: entry,
+                entry,
                 physical_devices: devices,
 
-                instance: instance,
-                surface_fn: surface_fn,
-                surface: surface,
+                instance,
+                surface_fn,
+                surface,
 
                 extensions: extension_names,
-                device_extensions: device_extensions,
+                device_extensions,
 
                 dbg_instance: Some(dbg_instance),
                 debug_messenger: Some(dbg_messenger),
@@ -272,14 +269,15 @@ impl VulkanContext {
 
         match graphics_device {
             Some(dev) => match (dev.graphics_family_index, dev.present_family_index) {
-                (Some(graphics_family_index), Some(present_family_index)) =>
+                (Some(graphics_family_index), Some(present_family_index)) => {
                     device::VulkanDevice::new(
                         self.clone(),
                         dev.phy,
                         graphics_family_index,
                         present_family_index,
                         &self.device_extensions,
-                    ),
+                    )
+                }
                 _ => Err(errors::VulkanError::DeviceSelectionError),
             },
             None => Err(errors::VulkanError::DeviceSelectionError),
@@ -306,14 +304,11 @@ impl VulkanContext {
 impl Drop for VulkanContext {
     fn drop(&mut self) {
         unsafe {
-            match self.debug_messenger {
-                Some(debug_messenger) => {
-                    self.dbg_instance
-                        .as_ref()
-                        .unwrap()
-                        .destroy_debug_utils_messenger(debug_messenger, None);
-                }
-                None => {}
+            if let Some(debug_messenger) = self.debug_messenger {
+                self.dbg_instance
+                    .as_ref()
+                    .unwrap()
+                    .destroy_debug_utils_messenger(debug_messenger, None);
             }
             self.surface_fn.destroy_surface(self.surface, None);
             self.instance.destroy_instance(None);

@@ -108,10 +108,9 @@ pub(crate) fn is_physical_device_suitable(
             .map(|ext| CStr::from_ptr(ext.extension_name.as_ptr()).to_owned())
             .collect::<Vec<CString>>()
     };
-    let req = required_ext
+    required_ext
         .iter()
-        .all(|required| extensions.contains(required));
-    return req;
+        .all(|required| extensions.contains(required))
 }
 
 pub(crate) fn create_image_views(

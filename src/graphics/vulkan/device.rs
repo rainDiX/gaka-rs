@@ -5,7 +5,7 @@
 use std::ffi;
 use std::rc::Rc;
 
-use ash::vk;
+use ash::vk::{self, TaggedStructure};
 
 use super::context;
 use super::context::VulkanContext;
@@ -35,7 +35,8 @@ impl VulkanDevice {
         extensions: &[ffi::CString],
     ) -> Result<Self, errors::VulkanError> {
         let device_properties = unsafe {
-            context.instance()
+            context
+                .instance()
                 .get_physical_device_properties(physical_device)
         };
         //let device_features = unsafe { instance.get_physical_device_features(*physical_device) };
@@ -83,7 +84,8 @@ impl VulkanDevice {
         dev_create_info.enabled_extension_count = extensions.len() as u32;
 
         let logical_device = unsafe {
-            context.instance()
+            context
+                .instance()
                 .create_device(physical_device, &dev_create_info, None)?
         };
 
@@ -107,15 +109,18 @@ impl VulkanDevice {
 
     pub(crate) fn query_swapchain_support(&self) -> swapchain::SwapChainSupportDetail {
         unsafe {
-            let capabilities = self.context
+            let capabilities = self
+                .context
                 .surface_fn()
                 .get_physical_device_surface_capabilities(self.phy, *self.context.surface())
                 .expect("Failed to query for surface capabilities.");
-            let formats = self.context
+            let formats = self
+                .context
                 .surface_fn()
                 .get_physical_device_surface_formats(self.phy, *self.context.surface())
                 .expect("Failed to query for surface formats.");
-            let present_modes = self.context
+            let present_modes = self
+                .context
                 .surface_fn()
                 .get_physical_device_surface_present_modes(self.phy, *self.context.surface())
                 .expect("Failed to query for surface present mode.");
@@ -157,11 +162,13 @@ impl VulkanDevice {
     }
 
     unsafe fn create_shader_module(&self, code: &[u8]) -> Result<vk::ShaderModule, vk::Result> {
-        let create_info = {
-            let mut create_info = vk::ShaderModuleCreateInfo::default();
-            create_info.code_size = code.len();
-            create_info.p_code = code.as_ptr() as *const u32;
-            create_info
+        let create_info = vk::ShaderModuleCreateInfo {
+                s_type: vk::ShaderModuleCreateInfo::STRUCTURE_TYPE,
+                p_next: core::ptr::null(),
+                flags: vk::ShaderModuleCreateFlags::default(),
+                code_size: code.len(),
+                p_code: code.as_ptr() as *const u32,
+                _marker: std::marker::PhantomData,
         };
         self.device.create_shader_module(&create_info, None)
     }
@@ -322,7 +329,7 @@ impl VulkanDevice {
             device: self.clone(),
             layout: pipeline_layout,
             pipeline: pipeline[0],
-            render_pass: render_pass,
+            render_pass,
         })
     }
 }
