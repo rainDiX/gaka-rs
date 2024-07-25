@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use ash::vk::{self, TaggedStructure};
 
-use super::context;
+use super::command_buffer::VulkanCommandBuffer;
 use super::context::VulkanContext;
 use super::errors;
 use super::errors::VulkanError;
@@ -17,7 +17,7 @@ use super::swapchain::VulkanSwapChain;
 use super::utils;
 
 pub struct VulkanDevice {
-    context: Rc<context::VulkanContext>,
+    context: Rc<VulkanContext>,
     phy: vk::PhysicalDevice,
     device: ash::Device,
     graphics_queue: vk::Queue,
@@ -28,7 +28,7 @@ pub struct VulkanDevice {
 
 impl VulkanDevice {
     pub fn new(
-        context: Rc<context::VulkanContext>,
+        context: Rc<VulkanContext>,
         physical_device: vk::PhysicalDevice,
         graphics_family_index: u32,
         present_family_index: u32,
@@ -163,12 +163,12 @@ impl VulkanDevice {
 
     unsafe fn create_shader_module(&self, code: &[u8]) -> Result<vk::ShaderModule, vk::Result> {
         let create_info = vk::ShaderModuleCreateInfo {
-                s_type: vk::ShaderModuleCreateInfo::STRUCTURE_TYPE,
-                p_next: core::ptr::null(),
-                flags: vk::ShaderModuleCreateFlags::default(),
-                code_size: code.len(),
-                p_code: code.as_ptr() as *const u32,
-                _marker: std::marker::PhantomData,
+            s_type: vk::ShaderModuleCreateInfo::STRUCTURE_TYPE,
+            p_next: core::ptr::null(),
+            flags: vk::ShaderModuleCreateFlags::default(),
+            code_size: code.len(),
+            p_code: code.as_ptr() as *const u32,
+            _marker: std::marker::PhantomData,
         };
         self.device.create_shader_module(&create_info, None)
     }
@@ -325,12 +325,34 @@ impl VulkanDevice {
             self.device.destroy_shader_module(fragment_shader_mod, None);
         }
 
-        Ok(VulkanGraphicsPipeline {
-            device: self.clone(),
-            layout: pipeline_layout,
-            pipeline: pipeline[0],
+        Ok(VulkanGraphicsPipeline::new(
+            self.clone(),
+            pipeline_layout,
+            pipeline[0],
             render_pass,
-        })
+        ))
+    }
+
+    pub fn create_command_buffer(self: &Rc<Self>) -> Result<VulkanCommandBuffer, VulkanError> {
+        let pool_info = vk::CommandPoolCreateInfo::default()
+            .queue_family_index(self.graphics_family_index)
+            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
+        let command_pool = unsafe { self.device.create_command_pool(&pool_info, None)? };
+
+        // TODO : maybe add some secondary command buffers
+        let command_buffer_info = vk::CommandBufferAllocateInfo::default()
+            .command_pool(command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(1);
+
+        let command_buffers =
+            unsafe { self.device.allocate_command_buffers(&command_buffer_info)? };
+
+        Ok(VulkanCommandBuffer::new(
+            self.clone(),
+            command_pool,
+            command_buffers[0],
+        ))
     }
 }
 

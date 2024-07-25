@@ -7,5 +7,6 @@ pub mod context;
 pub mod device;
 pub mod swapchain;
 pub mod graphics_pipeline;
+pub mod command_buffer;
 mod errors;
 mod utils;

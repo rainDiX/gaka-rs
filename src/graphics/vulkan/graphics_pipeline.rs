@@ -9,10 +9,30 @@ use ash::vk;
 use super::device::VulkanDevice;
 
 pub struct VulkanGraphicsPipeline {
-    pub device: Rc<VulkanDevice>,
-    pub layout: vk::PipelineLayout,
-    pub pipeline: vk::Pipeline,
-    pub render_pass: vk::RenderPass,
+    device: Rc<VulkanDevice>,
+    layout: vk::PipelineLayout,
+    pipeline: vk::Pipeline,
+    render_pass: vk::RenderPass,
+}
+
+impl VulkanGraphicsPipeline {
+    pub(crate) fn new(
+        device: Rc<VulkanDevice>,
+        layout: vk::PipelineLayout,
+        pipeline: vk::Pipeline,
+        render_pass: vk::RenderPass,
+    ) -> Self {
+        Self {
+            device,
+            layout,
+            pipeline,
+            render_pass,
+        }
+    }
+
+    pub(crate) fn render_pass(&self) -> vk::RenderPass {
+        self.render_pass
+    }
 }
 
 impl Drop for VulkanGraphicsPipeline {
